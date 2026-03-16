@@ -130,24 +130,6 @@ class DeployingProvisioningHandler(DeploymentHandler):
         )
 
     @override
-    async def prepare(self, deployments: Sequence[DeploymentWithHistory]) -> None:
-        """Update health check config in app-proxy for newly entering deployments.
-
-        Called once per deployment when it first enters PROVISIONING, so that
-        the new revision's health check settings are used from the start.
-        """
-        for deployment in deployments:
-            try:
-                await self._deployment_executor.update_endpoint_health_check(
-                    deployment.deployment_info,
-                )
-            except Exception:
-                log.exception(
-                    "Failed to update health check config in app-proxy for deployment {}",
-                    deployment.deployment_info.id,
-                )
-
-    @override
     async def execute(
         self, deployments: Sequence[DeploymentWithHistory]
     ) -> DeploymentExecutionResult:
@@ -173,6 +155,19 @@ class DeployingProvisioningHandler(DeploymentHandler):
             else:
                 # Still PROVISIONING → skip (no state transition)
                 skipped.append(deployment)
+
+        # Update health check config in app-proxy only for deployments
+        # that successfully advanced to PROGRESSING (once per deployment).
+        for deployment in successes:
+            try:
+                await self._deployment_executor.update_endpoint_health_check(
+                    deployment.deployment_info,
+                )
+            except Exception:
+                log.exception(
+                    "Failed to update health check config in app-proxy for deployment {}",
+                    deployment.deployment_info.id,
+                )
 
         # Evaluation errors → execution errors
         errors = [
