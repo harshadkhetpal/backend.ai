@@ -8,6 +8,7 @@ Create Date: 2026-03-15 00:00:00.000000
 
 import json
 import textwrap
+from typing import Any
 
 import sqlalchemy as sa
 from alembic import op
@@ -37,7 +38,7 @@ GROUP_LABELS = [
     "value_type",
 ]
 
-PRESETS = [
+PRESETS: list[dict[str, Any]] = [
     {
         "name": "container_gauge",
         "metric_name": "backendai_container_utilization",
@@ -92,7 +93,7 @@ def upgrade() -> None:
                     ON CONFLICT (name) DO NOTHING
                 """)
             ),
-            preset,
+            parameters=preset,
         )
 
 
