@@ -68,19 +68,6 @@ PRESETS: list[dict[str, Any]] = [
 
 
 def upgrade() -> None:
-    # Add unique constraint on name to support ON CONFLICT (name) DO NOTHING
-    op.drop_index(
-        op.f("ix_prometheus_query_presets_name"),
-        table_name="prometheus_query_presets",
-        if_exists=True,
-    )
-    op.create_index(
-        op.f("ix_prometheus_query_presets_name"),
-        "prometheus_query_presets",
-        ["name"],
-        unique=True,
-    )
-
     conn = op.get_bind()
     for preset in PRESETS:
         conn.execute(
@@ -88,9 +75,10 @@ def upgrade() -> None:
                 textwrap.dedent("""\
                     INSERT INTO prometheus_query_presets
                         (name, metric_name, query_template, time_window, options)
-                    VALUES
-                        (:name, :metric_name, :query_template, :time_window, :options::jsonb)
-                    ON CONFLICT (name) DO NOTHING
+                    SELECT :name, :metric_name, :query_template, :time_window, :options::jsonb
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM prometheus_query_presets WHERE name = :name
+                    )
                 """)
             ),
             parameters=preset,
@@ -106,16 +94,4 @@ def downgrade() -> None:
                 WHERE name IN ('container_gauge', 'container_rate', 'container_diff')
             """)
         )
-    )
-
-    # Revert unique index back to non-unique
-    op.drop_index(
-        op.f("ix_prometheus_query_presets_name"),
-        table_name="prometheus_query_presets",
-        if_exists=True,
-    )
-    op.create_index(
-        op.f("ix_prometheus_query_presets_name"),
-        "prometheus_query_presets",
-        ["name"],
     )
