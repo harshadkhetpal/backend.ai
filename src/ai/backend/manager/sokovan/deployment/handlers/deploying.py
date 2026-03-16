@@ -133,7 +133,12 @@ class DeployingProvisioningHandler(DeploymentHandler):
     async def execute(
         self, deployments: Sequence[DeploymentWithHistory]
     ) -> DeploymentExecutionResult:
-        for deployment in deployments:
+        # Update health check config in app-proxy only on the first
+        # PROVISIONING cycle to avoid redundant DB reads and PUT calls.
+        first_cycle_deployments = [
+            deployment for deployment in deployments if deployment.phase_attempts == 0
+        ]
+        for deployment in first_cycle_deployments:
             try:
                 await self._deployment_executor.update_endpoint_health_check(
                     deployment.deployment_info,
