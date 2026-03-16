@@ -388,6 +388,15 @@ class DeploymentCoordinator:
         deployment_ids = [deployment.deployment_info.id for deployment in deployments]
 
         with DeploymentRecorderContext.scope(handler_name, entity_ids=deployment_ids) as pool:
+            # Run one-time preparation for deployments entering this phase
+            # for the first time (phase_attempts == 0 means no history yet).
+            new_deployments = [d for d in deployments if d.phase_attempts == 0]
+            if new_deployments:
+                try:
+                    await handler.prepare(new_deployments)
+                except Exception:
+                    log.exception("handler {}: prepare() raised an unexpected error", handler_name)
+
             try:
                 result = await handler.execute(deployments)
             except Exception:

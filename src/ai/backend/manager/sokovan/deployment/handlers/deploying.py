@@ -130,11 +130,12 @@ class DeployingProvisioningHandler(DeploymentHandler):
         )
 
     @override
-    async def execute(
-        self, deployments: Sequence[DeploymentWithHistory]
-    ) -> DeploymentExecutionResult:
-        # Update health check config in app-proxy for each deployment so that
-        # the new revision's health check settings are used from the start.
+    async def prepare(self, deployments: Sequence[DeploymentWithHistory]) -> None:
+        """Update health check config in app-proxy for newly entering deployments.
+
+        Called once per deployment when it first enters PROVISIONING, so that
+        the new revision's health check settings are used from the start.
+        """
         for deployment in deployments:
             try:
                 await self._deployment_executor.update_endpoint_health_check(
@@ -146,6 +147,10 @@ class DeployingProvisioningHandler(DeploymentHandler):
                     deployment.deployment_info.id,
                 )
 
+    @override
+    async def execute(
+        self, deployments: Sequence[DeploymentWithHistory]
+    ) -> DeploymentExecutionResult:
         deployment_infos = [deployment.deployment_info for deployment in deployments]
         deployment_map = {deployment.deployment_info.id: deployment for deployment in deployments}
 

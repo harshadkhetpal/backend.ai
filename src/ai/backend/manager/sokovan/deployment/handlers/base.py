@@ -70,6 +70,17 @@ class DeploymentHandler:
         """
         raise NotImplementedError("Subclasses must implement status_transitions()")
 
+    async def prepare(self, deployments: Sequence[DeploymentWithHistory]) -> None:
+        """One-time initialization before the first execute() cycle.
+
+        Called by the coordinator before ``execute()`` only when a deployment
+        first enters this handler's phase (``phase_attempts == 0``).
+        Subclasses override this to perform idempotent setup such as syncing
+        external state (e.g., pushing health-check config to app-proxy).
+
+        The default implementation is a no-op.
+        """
+
     @abstractmethod
     async def execute(
         self, deployments: Sequence[DeploymentWithHistory]
