@@ -1624,11 +1624,16 @@ class VFolderHandler:
             params.permission.value,
         )
 
-        target_quota_scope_id = (
-            QuotaScopeID.parse(params.target_quota_scope_id)
-            if params.target_quota_scope_id
-            else None
-        )
+        if params.target_quota_scope_id:
+            try:
+                target_quota_scope_id = QuotaScopeID.parse(params.target_quota_scope_id)
+            except (ValueError, BackendAIError) as e:
+                raise InvalidAPIParameters(
+                    f"Invalid target_quota_scope_id '{params.target_quota_scope_id}'; "
+                    "expected format 'user:<uuid>' or 'project:<uuid>'."
+                ) from e
+        else:
+            target_quota_scope_id = None
         result = await self._vfolder.clone_vfolder.wait_for_complete(
             CloneVFolderAction(
                 requester_user_uuid=vfctx.user_uuid,
