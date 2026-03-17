@@ -4,8 +4,8 @@ from collections.abc import Sequence
 
 from ai.backend.common.types import KernelId
 from ai.backend.manager.data.kernel.types import KernelInfo
+from ai.backend.manager.models.kernel.conditions import KernelConditions
 from ai.backend.manager.repositories.base import BatchQuerier, NoPagination
-from ai.backend.manager.repositories.scheduler.options import KernelConditions
 from ai.backend.manager.services.session.actions.search_kernel import SearchKernelsAction
 from ai.backend.manager.services.session.processors import SessionProcessors
 
