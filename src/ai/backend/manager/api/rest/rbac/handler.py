@@ -44,21 +44,19 @@ from ai.backend.common.dto.manager.rbac.response import (
     SearchEntitiesResponse,
     SearchScopesResponse,
 )
+from ai.backend.manager.api.adapters.rbac import RoleServiceAdapter
 from ai.backend.manager.data.permission.role import UserRoleAssignmentInput, UserRoleRevocationInput
 from ai.backend.manager.dto.context import UserContext
 from ai.backend.manager.errors.permission import NotEnoughPermission
 from ai.backend.manager.models.rbac_models.role import RoleRow
-from ai.backend.manager.repositories.base import Creator, Purger, Updater
-from ai.backend.manager.repositories.permission_controller.creators import RoleCreatorSpec
+from ai.backend.manager.repositories.base import Purger, Updater
 from ai.backend.manager.services.permission_contoller.actions import (
     AssignRoleAction,
-    CreateRoleAction,
     DeleteRoleAction,
     GetRoleDetailAction,
     RevokeRoleAction,
     SearchRolesAction,
     SearchUsersAssignedToRoleAction,
-    UpdateRoleAction,
 )
 from ai.backend.manager.services.permission_contoller.actions.get_entity_types import (
     GetEntityTypesAction,
@@ -88,6 +86,7 @@ class RBACHandler:
 
     def __init__(self, *, permission_controller: PermissionControllerProcessors) -> None:
         self._permission_controller = permission_controller
+        self._role_service_adapter = RoleServiceAdapter(permission_controller)
         self._role_adapter = RoleAdapter()
         self._assigned_user_adapter = AssignedUserAdapter()
         self._scope_adapter = ScopeAdapter()
@@ -104,18 +103,8 @@ class RBACHandler:
         if not ctx.is_superadmin:
             raise NotEnoughPermission("Only superadmin can create roles.")
 
-        creator = Creator(
-            spec=RoleCreatorSpec(
-                name=body.parsed.name,
-                source=body.parsed.source,
-                status=body.parsed.status,
-                description=body.parsed.description,
-            )
-        )
-        action_result = await self._permission_controller.create_role.wait_for_complete(
-            CreateRoleAction(creator=creator)
-        )
-        resp = CreateRoleResponse(role=self._role_adapter.convert_to_dto(action_result.data))
+        role_dto = await self._role_service_adapter.create_role(body.parsed)
+        resp = CreateRoleResponse(role=role_dto)
         return APIResponse.build(status_code=HTTPStatus.CREATED, response_model=resp)
 
     async def search_roles(
@@ -167,11 +156,8 @@ class RBACHandler:
             raise NotEnoughPermission("Only superadmin can update roles.")
 
         role_id = path.parsed.role_id
-        updater = self._role_adapter.build_updater(body.parsed, role_id)
-        action_result = await self._permission_controller.update_role.wait_for_complete(
-            UpdateRoleAction(updater=updater)
-        )
-        resp = UpdateRoleResponse(role=self._role_adapter.convert_to_dto(action_result.data))
+        role_dto = await self._role_service_adapter.update_role(role_id, body.parsed)
+        resp = UpdateRoleResponse(role=role_dto)
         return APIResponse.build(status_code=HTTPStatus.OK, response_model=resp)
 
     async def delete_role(

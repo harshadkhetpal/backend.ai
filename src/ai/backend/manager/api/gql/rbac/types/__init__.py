@@ -32,7 +32,7 @@ from .role import (
     BulkRevokeRoleErrorGQL,
     BulkRevokeRoleInputGQL,
     BulkRevokeRolePayloadGQL,
-    CreateRoleInput,
+    CreateRoleInputGQL,
     DeleteRoleInput,
     DeleteRolePayload,
     PurgeRoleInput,
@@ -53,7 +53,7 @@ from .role import (
     RoleOrderField,
     RoleSourceGQL,
     RoleStatusGQL,
-    UpdateRoleInput,
+    UpdateRoleInputGQL,
 )
 
 __all__ = [
@@ -88,8 +88,8 @@ __all__ = [
     "CreatePermissionInput",
     "UpdatePermissionInput",
     "DeletePermissionInput",
-    "CreateRoleInput",
-    "UpdateRoleInput",
+    "CreateRoleInputGQL",
+    "UpdateRoleInputGQL",
     "DeleteRoleInput",
     "PurgeRoleInput",
     "AssignRoleInput",

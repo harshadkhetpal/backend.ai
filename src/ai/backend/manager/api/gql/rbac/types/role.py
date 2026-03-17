@@ -10,12 +10,15 @@ from typing import TYPE_CHECKING, Annotated, Any, Self, override
 
 import strawberry
 from strawberry import ID, Info
+from strawberry.experimental import pydantic as strawberry_pydantic
 from strawberry.relay import Connection, Edge, Node, NodeID
 
 from ai.backend.common.data.permission.types import (
     RoleSource,
     RoleStatus,
 )
+from ai.backend.common.dto.manager.rbac.request import CreateRoleRequest, UpdateRoleRequest
+from ai.backend.common.dto.manager.rbac.response import RoleDTO
 from ai.backend.manager.api.gql.base import OrderDirection, StringFilter
 from ai.backend.manager.api.gql.types import GQLFilter, GQLOrderBy, StrawberryGQLContext
 from ai.backend.manager.data.permission.role import (
@@ -28,7 +31,6 @@ from ai.backend.manager.data.permission.role import (
     UserRoleRevocationData,
     UserRoleRevocationInput,
 )
-from ai.backend.manager.models.rbac_models.role import RoleRow
 from ai.backend.manager.models.rbac_models.user_role import UserRoleRow
 from ai.backend.manager.repositories.base import (
     QueryCondition,
@@ -36,10 +38,8 @@ from ai.backend.manager.repositories.base import (
     combine_conditions_or,
     negate_conditions,
 )
-from ai.backend.manager.repositories.base.creator import BulkCreator, Creator
-from ai.backend.manager.repositories.base.updater import Updater
+from ai.backend.manager.repositories.base.creator import BulkCreator
 from ai.backend.manager.repositories.permission_controller.creators import (
-    RoleCreatorSpec,
     UserRoleCreatorSpec,
 )
 from ai.backend.manager.repositories.permission_controller.options import (
@@ -48,8 +48,6 @@ from ai.backend.manager.repositories.permission_controller.options import (
     RoleConditions,
     RoleOrders,
 )
-from ai.backend.manager.repositories.permission_controller.updaters import RoleUpdaterSpec
-from ai.backend.manager.types import OptionalState, TriState
 
 if TYPE_CHECKING:
     from ai.backend.manager.api.gql.rbac.types.permission import (
@@ -134,6 +132,26 @@ class RoleGQL(Node):
             created_at=data.created_at,
             updated_at=data.updated_at,
             deleted_at=data.deleted_at,
+        )
+
+    @classmethod
+    def from_pydantic(cls, dto: RoleDTO) -> Self:
+        """Convert RoleDTO to RoleGQL.
+
+        PoC Note: strawberry.experimental.pydantic.type is incompatible with
+        strawberry.relay.Node due to metaclass conflicts at class definition time.
+        We use a hybrid approach: keep Node inheritance and implement from_pydantic()
+        manually to achieve the same DTO-based conversion pattern.
+        """
+        return cls(
+            id=ID(str(dto.id)),
+            name=dto.name,
+            description=dto.description,
+            source=RoleSourceGQL.from_internal(dto.source),
+            status=RoleStatusGQL.from_internal(dto.status),
+            created_at=dto.created_at,
+            updated_at=dto.updated_at,
+            deleted_at=dto.deleted_at,
         )
 
     @strawberry.field(description="Added in 26.3.0. Permissions associated with this role.")  # type: ignore[misc]
@@ -544,45 +562,117 @@ class RoleAssignmentOrderBy(GQLOrderBy):
 # ==================== Input Types ====================
 
 
-@strawberry.input(description="Added in 26.3.0. Input for creating a role")
-class CreateRoleInput:
-    name: str
-    description: str | None = None
+@strawberry_pydantic.input(
+    model=CreateRoleRequest,
+    name="CreateRoleInput",
+    description="Added in 26.3.0. Input for creating a role",
+)
+class CreateRoleInputGQL:
+    # Use strawberry.auto to pick up name/description from the Pydantic model.
+    name: strawberry.auto
+    description: strawberry.auto
+    # Enum fields manually specified to use GQL-registered types.
+    # RoleSource/RoleStatus are internal StrEnums not registered as strawberry enums;
+    # using auto for them would create duplicate conflicting enum types in the schema.
     source: RoleSourceGQL | None = None
-
-    def to_creator(self) -> Creator[RoleRow]:
-        return Creator(
-            spec=RoleCreatorSpec(
-                name=self.name,
-                source=self.source.to_internal() if self.source is not None else RoleSource.CUSTOM,
-                status=RoleStatus.ACTIVE,
-                description=self.description,
-            )
-        )
-
-
-@strawberry.input(description="Added in 26.3.0. Input for updating a role")
-class UpdateRoleInput:
-    id: uuid.UUID
-    name: str | None = None
-    description: str | None = None
     status: RoleStatusGQL | None = None
 
-    def to_updater(self) -> Updater[RoleRow]:
-        spec = RoleUpdaterSpec(
-            name=OptionalState.update(self.name) if self.name is not None else OptionalState.nop(),
-            description=(
-                TriState.update(self.description)
-                if self.description is not None
-                else TriState.nop()
-            ),
-            status=(
-                OptionalState.update(self.status.to_internal())
-                if self.status is not None
-                else OptionalState.nop()
-            ),
+    def to_pydantic(self) -> CreateRoleRequest:
+        """Convert GQL input to Pydantic DTO, triggering Pydantic validation.
+
+        Overrides strawberry_pydantic's auto-generated to_pydantic() to handle
+        enum conversion (RoleSourceGQL → RoleSource, RoleStatusGQL → RoleStatus).
+        Pydantic validation is triggered when CreateRoleRequest(...) is constructed.
+
+        PoC Note: @strawberry_pydantic.input applies Pydantic model defaults to class body
+        fields that share a name with a Pydantic model field (source, status). As a result,
+        self.source/self.status may hold internal-enum defaults rather than GQL enum values
+        when the user does not explicitly supply them.
+        We use isinstance checks to handle both cases safely.
+
+        PoC Note 2: @strawberry_pydantic.input strips custom methods (e.g., to_creator)
+        and only preserves to_pydantic(), from_pydantic(), is_type_of(). Methods that
+        cannot be preserved should be implemented as standalone functions or moved to adapters.
+        """
+        source: RoleSource = (
+            self.source.to_internal()
+            if isinstance(self.source, RoleSourceGQL)
+            else self.source
+            if isinstance(self.source, RoleSource)
+            else RoleSource.CUSTOM
         )
-        return Updater(spec=spec, pk_value=self.id)
+        status: RoleStatus = (
+            self.status.to_internal()
+            if isinstance(self.status, RoleStatusGQL)
+            else self.status
+            if isinstance(self.status, RoleStatus)
+            else RoleStatus.ACTIVE
+        )
+        return CreateRoleRequest(
+            name=self.name,
+            source=source,
+            status=status,
+            description=self.description,
+        )
+
+
+@strawberry_pydantic.input(
+    model=UpdateRoleRequest,
+    name="UpdateRoleInput",
+    description="Added in 26.3.0. Input for updating a role",
+)
+class UpdateRoleInputGQL:
+    # id is a GQL-specific field (not in UpdateRoleRequest; REST uses URL path parameter).
+    id: uuid.UUID
+    # Use strawberry.auto to pick up name from the Pydantic model.
+    name: strawberry.auto
+    # Enum fields manually specified to use GQL-registered types.
+    source: RoleSourceGQL | None = None
+    status: RoleStatusGQL | None = None
+    # description excluded from auto mapping due to Sentinel type incompatibility.
+    # PoC Limitation: GQL cannot distinguish "not provided" from "explicitly set to null".
+    # Behavior: null = no-op (do not change), string value = update description.
+    description: str | None = None
+
+    def to_pydantic(self) -> UpdateRoleRequest:
+        """Convert GQL input to Pydantic DTO, triggering Pydantic validation.
+
+        Overrides strawberry_pydantic's auto-generated to_pydantic() to handle:
+        1. Enum conversion (RoleSourceGQL → RoleSource, RoleStatusGQL → RoleStatus)
+        2. Sentinel pattern: description=None treated as "no-op" (not "clear")
+           since GQL cannot represent the SENTINEL/UNSET distinction.
+
+        PoC Note: Same as CreateRoleInputGQL — class body fields sharing names with
+        Pydantic model fields may carry internal-enum defaults. isinstance() guards handle
+        both the GQL-enum path (user provided) and internal-enum path (Pydantic default).
+
+        PoC Note 2: @strawberry_pydantic.input strips custom methods. to_updater() has been
+        removed; use RoleServiceAdapter.update_role() with the DTO returned by to_pydantic().
+        """
+        from ai.backend.common.api_handlers import SENTINEL
+
+        source: RoleSource | None = (
+            self.source.to_internal()
+            if isinstance(self.source, RoleSourceGQL)
+            else self.source
+            if isinstance(self.source, RoleSource)
+            else None
+        )
+        status: RoleStatus | None = (
+            self.status.to_internal()
+            if isinstance(self.status, RoleStatusGQL)
+            else self.status
+            if isinstance(self.status, RoleStatus)
+            else None
+        )
+        return UpdateRoleRequest(
+            name=self.name,
+            source=source,
+            status=status,
+            # Map GQL null to SENTINEL (no-op) to preserve existing semantics.
+            # To explicitly clear the description, the caller must pass an empty string "".
+            description=SENTINEL if self.description is None else self.description,
+        )
 
 
 @strawberry.input(description="Added in 26.3.0. Input for assigning a role to a user")

@@ -27,7 +27,7 @@ from .types import (
     BulkRevokeRoleInputGQL,
     BulkRevokeRolePayloadGQL,
     CreatePermissionInput,
-    CreateRoleInput,
+    CreateRoleInputGQL,
     EntityConnection,
     EntityFilter,
     EntityOrderBy,
@@ -50,7 +50,7 @@ from .types import (
     RoleStatusGQL,
     ScopeEntityCombinationGQL,
     UpdatePermissionInput,
-    UpdateRoleInput,
+    UpdateRoleInputGQL,
 )
 
 __all__ = (
@@ -75,8 +75,8 @@ __all__ = (
     "PermissionOrderBy",
     "EntityOrderBy",
     # Inputs
-    "CreateRoleInput",
-    "UpdateRoleInput",
+    "CreateRoleInputGQL",
+    "UpdateRoleInputGQL",
     "CreatePermissionInput",
     "UpdatePermissionInput",
     "AssignRoleInput",
