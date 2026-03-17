@@ -2694,14 +2694,16 @@ async def change_vfolder_ownership(request: web.Request, params: Any) -> web.Res
     )
     async with root_ctx.db.begin_readonly() as conn:
         query = (
-            sa.select([vfolders.c.host])
+            sa.select([vfolders.c.host, vfolders.c.user])
             .select_from(vfolders)
             .where(
                 (vfolders.c.id == vfolder_id)
                 & (vfolders.c.ownership_type == VFolderOwnershipType.USER)
             )
         )
-        folder_host = await conn.scalar(query)
+        row = (await conn.execute(query)).first()
+        folder_host = row.host if row else None
+        old_owner_uuid = row.user if row else None
     if folder_host not in allowed_hosts_by_user:
         raise VFolderOperationFailed("User to migrate vfolder needs an access to the storage host.")
 
@@ -2738,6 +2740,50 @@ async def change_vfolder_ownership(request: web.Request, params: Any) -> web.Res
             await conn.execute(query)
 
     await execute_with_retry(_delete_vfolder_related_rows)
+
+    # Clean up old owner's RBAC records for this vfolder
+    if old_owner_uuid is not None and old_owner_uuid != user_info.uuid:
+
+        async def _cleanup_old_owner_rbac() -> None:
+            from ai.backend.manager.models.rbac_models.association_scopes_entities import (
+                AssociationScopesEntitiesRow,
+            )
+            from ai.backend.manager.models.rbac_models.permission.object_permission import (
+                ObjectPermissionRow,
+            )
+            from ai.backend.manager.models.rbac_models.permission.permission_group import (
+                PermissionGroupRow,
+            )
+
+            async with root_ctx.db.begin_session() as db_session:
+                # Remove scope-entity mapping for old owner
+                await db_session.execute(
+                    sa.delete(AssociationScopesEntitiesRow).where(
+                        sa.and_(
+                            AssociationScopesEntitiesRow.scope_type == ScopeType.USER,
+                            AssociationScopesEntitiesRow.scope_id == str(old_owner_uuid),
+                            AssociationScopesEntitiesRow.entity_type == "vfolder",
+                            AssociationScopesEntitiesRow.entity_id == str(vfolder_id),
+                        )
+                    )
+                )
+                # Remove object permissions for old owner
+                permission_group = await db_session.scalar(
+                    sa.select(PermissionGroupRow).where(
+                        PermissionGroupRow.scope_id == str(old_owner_uuid)
+                    )
+                )
+                if permission_group is not None:
+                    await db_session.execute(
+                        sa.delete(ObjectPermissionRow).where(
+                            sa.and_(
+                                ObjectPermissionRow.role_id == permission_group.role_id,
+                                ObjectPermissionRow.entity_id == str(vfolder_id),
+                            )
+                        )
+                    )
+
+        await execute_with_retry(_cleanup_old_owner_rbac)
 
     return web.json_response({}, status=HTTPStatus.OK)
 
