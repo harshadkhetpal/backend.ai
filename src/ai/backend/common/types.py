@@ -144,6 +144,8 @@ __all__ = (
     "VFolderMount",
     "VFolderUsageMode",
     "VolumeMountableNodeType",
+    "NodeIDMarker",
+    "NodeUUID",
     "aobject",
     "check_typed_dict",
     "check_typed_tuple",
@@ -2105,3 +2107,22 @@ class StreamReader(ABC):
     @abstractmethod
     def content_type(self) -> str | None:
         raise GenericNotImplementedError
+
+
+class NodeIDMarker:
+    """Pydantic field metadata marker indicating a UUID field should be converted
+    to a Relay Global ID (NodeID) in GraphQL responses, and vice versa."""
+
+
+NodeUUID = Annotated[UUID, NodeIDMarker()]
+"""A UUID field annotated with NodeIDMarker.
+
+Use this type in Pydantic DTOs to indicate that the field represents a Relay
+Node ID. When converted via ``pydantic_node_type()``, the UUID value is
+automatically serialized as a base64-encoded Relay Global ID string.
+
+Example::
+
+    class UserDTO(BaseModel):
+        id: NodeUUID = Field(description="User UUID")
+"""
