@@ -31,9 +31,6 @@ class StrategyApplyResult:
     completed_ids: set[UUID] = field(default_factory=set)
     """Deployment IDs that completed and had their revision swapped."""
 
-    rolled_back_ids: set[UUID] = field(default_factory=set)
-    """Deployment IDs that rolled back and had their deploying_revision cleared."""
-
     routes_created: int = 0
     """Number of new routes rolled out."""
 
@@ -51,7 +48,6 @@ class StrategyResultApplier:
     1. Sub-step assignment updates
     2. Route rollout (create) and drain (terminate)
     3. Revision swap for COMPLETED deployments
-    4. Clear deploying_revision for ROLLED_BACK deployments
     """
 
     def __init__(self, deployment_repo: DeploymentRepository) -> None:
@@ -60,16 +56,12 @@ class StrategyResultApplier:
     async def apply(self, summary: StrategyEvaluationSummary) -> StrategyApplyResult:
         changes = summary.route_changes
         completed_ids: set[UUID] = set()
-        rolled_back_ids: set[UUID] = set()
         for endpoint_id, sub_step in summary.assignments.items():
             if sub_step == DeploymentSubStep.COMPLETED:
                 completed_ids.add(endpoint_id)
-            elif sub_step == DeploymentSubStep.ROLLED_BACK:
-                rolled_back_ids.add(endpoint_id)
 
         result = StrategyApplyResult(
             completed_ids=completed_ids,
-            rolled_back_ids=rolled_back_ids,
             routes_created=len(changes.rollout_specs),
             routes_drained=len(changes.drain_route_ids),
             routes_promoted=len(changes.promote_route_ids),
@@ -100,14 +92,7 @@ class StrategyResultApplier:
             specs=[c.spec for c in changes.rollout_specs],
         )
 
-        if not (
-            summary.assignments
-            or rollout.specs
-            or drain
-            or promote
-            or completed_ids
-            or rolled_back_ids
-        ):
+        if not (summary.assignments or rollout.specs or drain or promote or completed_ids):
             return result
 
         swapped = await self._deployment_repo.apply_strategy_mutations(
@@ -116,7 +101,6 @@ class StrategyResultApplier:
             drain=drain,
             promote=promote,
             completed_ids=completed_ids,
-            rolled_back_ids=rolled_back_ids,
         )
 
         log.debug(
@@ -131,11 +115,6 @@ class StrategyResultApplier:
                 "Swapped revision for {}/{} completed deployments",
                 swapped,
                 len(completed_ids),
-            )
-        if rolled_back_ids:
-            log.info(
-                "Cleared deploying_revision for {} rolled-back deployments",
-                len(rolled_back_ids),
             )
 
         return result

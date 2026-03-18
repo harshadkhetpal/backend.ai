@@ -121,6 +121,10 @@ class RouteStatus(enum.Enum):
     def is_inactive(self) -> bool:
         return self in self.inactive_route_statuses()
 
+    def is_provisioning(self) -> bool:
+        """PROVISIONING or DEGRADED (still warming up, health checks not yet passing)."""
+        return self in (RouteStatus.PROVISIONING, RouteStatus.DEGRADED)
+
     def termination_priority(self) -> int:
         priority_map = {
             RouteStatus.UNHEALTHY: 1,
@@ -162,19 +166,17 @@ class DeploymentSubStep(DeploymentSubStatus):
 
     Active states:
     - PROVISIONING: New revision routes are being provisioned; waiting for readiness.
-    - PROGRESSING: Actively replacing old routes with new routes.
     - ROLLING_BACK: Actively rolling back failed new routes to previous revision.
+    - AWAITING_PROMOTION: All new routes healthy; waiting for manual approval or delay timer.
 
-    Terminal markers (no handler execution, trigger transition only):
+    Terminal marker (no handler execution, trigger transition only):
     - COMPLETED: All strategy conditions satisfied; ready for revision swap.
-    - ROLLED_BACK: Rollback finished; ready for cleanup and transition to READY.
     """
 
     PROVISIONING = "provisioning"
-    PROGRESSING = "progressing"
     ROLLING_BACK = "rolling_back"
+    AWAITING_PROMOTION = "awaiting_promotion"
     COMPLETED = "completed"
-    ROLLED_BACK = "rolled_back"
 
 
 @dataclass(frozen=True)

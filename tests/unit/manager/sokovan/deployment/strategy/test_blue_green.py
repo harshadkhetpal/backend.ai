@@ -1,4 +1,10 @@
-"""Tests for BlueGreenStrategy.evaluate_cycle()."""
+"""Tests for BlueGreenStrategy.evaluate_cycle().
+
+Tests cover:
+- FSM state transitions: PROVISIONING, AWAITING_PROMOTION, COMPLETED
+- auto_promote / manual promote / delayed promote scenarios
+- Edge cases and boundary conditions
+"""
 
 from __future__ import annotations
 
@@ -114,7 +120,7 @@ def delayed_promote_strategy() -> BlueGreenStrategy:
 
 
 class TestBlueGreenNoGreenRoutes:
-    """Step 2: No green routes -> create INACTIVE green routes -> PROVISIONING."""
+    """No green routes -> create INACTIVE green routes -> PROVISIONING."""
 
     def test_no_routes_at_all(
         self,
@@ -149,7 +155,7 @@ class TestBlueGreenNoGreenRoutes:
 
 
 class TestBlueGreenProvisioning:
-    """Step 3: Green routes still PROVISIONING -> wait."""
+    """Green routes still PROVISIONING -> wait."""
 
     def test_green_provisioning_waits(
         self,
@@ -182,8 +188,47 @@ class TestBlueGreenProvisioning:
         assert result.sub_step == DeploymentSubStep.PROVISIONING
 
 
+class TestBlueGreenNotAllHealthy:
+    """Not all green healthy -> PROVISIONING (waiting for readiness)."""
+
+    def test_partial_green_healthy(
+        self,
+        auto_promote_strategy: BlueGreenStrategy,
+        deployment: DeploymentInfo,
+    ) -> None:
+        routes = [
+            _make_route(NEW_REVISION_ID, RouteStatus.HEALTHY),
+            # Only 1 of 2 desired is healthy
+        ]
+
+        result = auto_promote_strategy.evaluate_cycle(deployment, routes)
+
+        assert result.sub_step == DeploymentSubStep.PROVISIONING
+
+    def test_mixed_healthy_and_degraded(
+        self,
+        auto_promote_strategy: BlueGreenStrategy,
+    ) -> None:
+        deployment = _make_deployment(desired_replicas=3)
+        routes = [
+            _make_route(NEW_REVISION_ID, RouteStatus.HEALTHY),
+            _make_route(NEW_REVISION_ID, RouteStatus.DEGRADED),
+            # DEGRADED counts as provisioning in the classifier
+        ]
+
+        result = auto_promote_strategy.evaluate_cycle(deployment, routes)
+
+        # 1 healthy + 1 provisioning(DEGRADED) < 3 desired -> still provisioning
+        assert result.sub_step == DeploymentSubStep.PROVISIONING
+
+
 class TestBlueGreenAllGreenFailed:
-    """Step 4: All green failed -> drain + ROLLED_BACK."""
+    """All green failed -> PROVISIONING (coordinator timeout handles rollback).
+
+    When all green routes have failed, the strategy returns PROVISIONING
+    without creating new routes. The coordinator's timeout sweep will
+    eventually transition to ROLLING_BACK.
+    """
 
     def test_all_green_failed_to_start(
         self,
@@ -197,8 +242,8 @@ class TestBlueGreenAllGreenFailed:
 
         result = auto_promote_strategy.evaluate_cycle(deployment, failed_routes)
 
-        assert result.sub_step == DeploymentSubStep.ROLLED_BACK
-        assert len(result.route_changes.drain_route_ids) == 2
+        # Failed routes exist but no running green -> PROVISIONING (wait for timeout)
+        assert result.sub_step == DeploymentSubStep.PROVISIONING
         assert not result.route_changes.rollout_specs
 
     def test_all_green_terminated(
@@ -213,46 +258,13 @@ class TestBlueGreenAllGreenFailed:
 
         result = auto_promote_strategy.evaluate_cycle(deployment, terminated_routes)
 
-        assert result.sub_step == DeploymentSubStep.ROLLED_BACK
-        assert len(result.route_changes.drain_route_ids) == 2
-
-
-class TestBlueGreenNotAllHealthy:
-    """Step 5: Not all green healthy -> PROGRESSING."""
-
-    def test_partial_green_healthy(
-        self,
-        auto_promote_strategy: BlueGreenStrategy,
-        deployment: DeploymentInfo,
-    ) -> None:
-        routes = [
-            _make_route(NEW_REVISION_ID, RouteStatus.HEALTHY),
-            # Only 1 of 2 desired is healthy
-        ]
-
-        result = auto_promote_strategy.evaluate_cycle(deployment, routes)
-
-        assert result.sub_step == DeploymentSubStep.PROGRESSING
-
-    def test_mixed_healthy_and_degraded(
-        self,
-        auto_promote_strategy: BlueGreenStrategy,
-    ) -> None:
-        deployment = _make_deployment(desired_replicas=3)
-        routes = [
-            _make_route(NEW_REVISION_ID, RouteStatus.HEALTHY),
-            _make_route(NEW_REVISION_ID, RouteStatus.DEGRADED),
-            # DEGRADED counts as active/healthy in the classifier
-        ]
-
-        result = auto_promote_strategy.evaluate_cycle(deployment, routes)
-
-        # 2 healthy < 3 desired
-        assert result.sub_step == DeploymentSubStep.PROGRESSING
+        # Terminated routes exist but no running green -> PROVISIONING (wait for timeout)
+        assert result.sub_step == DeploymentSubStep.PROVISIONING
+        assert not result.route_changes.rollout_specs
 
 
 class TestBlueGreenManualPromote:
-    """Step 6: auto_promote=False -> PROGRESSING (manual wait)."""
+    """auto_promote=False -> AWAITING_PROMOTION (manual wait)."""
 
     def test_all_green_healthy_manual_promote(
         self,
@@ -266,13 +278,13 @@ class TestBlueGreenManualPromote:
 
         result = manual_promote_strategy.evaluate_cycle(deployment, routes)
 
-        assert result.sub_step == DeploymentSubStep.PROGRESSING
+        assert result.sub_step == DeploymentSubStep.AWAITING_PROMOTION
         assert not result.route_changes.promote_route_ids
         assert not result.route_changes.drain_route_ids
 
 
 class TestBlueGreenDelayedPromote:
-    """Step 7: auto_promote=True + delay>0 -> check elapsed time."""
+    """auto_promote=True + delay>0 -> check elapsed time."""
 
     def test_delay_not_elapsed_yet(
         self,
@@ -287,7 +299,7 @@ class TestBlueGreenDelayedPromote:
         result = delayed_promote_strategy.evaluate_cycle(deployment, routes)
 
         # 60s delay, just created -> still waiting
-        assert result.sub_step == DeploymentSubStep.PROGRESSING
+        assert result.sub_step == DeploymentSubStep.AWAITING_PROMOTION
 
     def test_delay_elapsed_promotes(
         self,
@@ -311,7 +323,7 @@ class TestBlueGreenDelayedPromote:
 
 
 class TestBlueGreenImmediatePromote:
-    """Step 8: auto_promote=True + delay=0 -> promote immediately."""
+    """auto_promote=True + delay=0 -> promote immediately."""
 
     def test_all_green_healthy_auto_promote(
         self,
@@ -376,7 +388,7 @@ class TestBlueGreenEdgeCases:
         self,
         auto_promote_strategy: BlueGreenStrategy,
     ) -> None:
-        """Some green healthy + some green failed -> still PROGRESSING (not enough healthy)."""
+        """Some green healthy + some green failed -> still PROVISIONING (not enough healthy)."""
         deployment = _make_deployment(desired_replicas=3)
         routes = [
             _make_route(NEW_REVISION_ID, RouteStatus.HEALTHY),
@@ -387,7 +399,7 @@ class TestBlueGreenEdgeCases:
         result = auto_promote_strategy.evaluate_cycle(deployment, routes)
 
         # 2 healthy < 3 desired
-        assert result.sub_step == DeploymentSubStep.PROGRESSING
+        assert result.sub_step == DeploymentSubStep.PROVISIONING
 
     def test_single_replica_deployment(
         self,

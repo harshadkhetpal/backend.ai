@@ -32,8 +32,8 @@ class RouteChanges:
 class StrategyCycleResult:
     """Result of evaluating a single deployment's strategy cycle.
 
-    ``sub_step`` indicates the next state: PROVISIONING, PROGRESSING,
-    ROLLING_BACK, COMPLETED, or ROLLED_BACK.
+    ``sub_step`` indicates the next state: PROVISIONING,
+    AWAITING_PROMOTION, ROLLING_BACK, or COMPLETED.
     """
 
     sub_step: DeploymentSubStep
@@ -54,7 +54,7 @@ class StrategyEvaluationSummary:
 
     The evaluator classifies each deployment into a sub_step and records
     the mapping so the applier can bulk-update the DB column.
-    All outcomes — including ROLLING_BACK, COMPLETED, and ROLLED_BACK — are expressed
+    All outcomes — including ROLLING_BACK and COMPLETED — are expressed
     as sub_step values and persisted to the DB by the applier.
     """
 

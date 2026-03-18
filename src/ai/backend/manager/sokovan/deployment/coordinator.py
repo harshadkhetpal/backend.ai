@@ -61,7 +61,7 @@ from .executor import DeploymentExecutor
 from .handlers import (
     CheckPendingDeploymentHandler,
     CheckReplicaDeploymentHandler,
-    DeployingProgressingHandler,
+    DeployingAwaitingPromotionHandler,
     DeployingProvisioningHandler,
     DeployingRollingBackHandler,
     DeploymentHandler,
@@ -326,8 +326,8 @@ class DeploymentCoordinator:
                 ),
             ),
             (
-                (DeploymentLifecycleType.DEPLOYING, DeploymentSubStep.PROGRESSING),
-                DeployingProgressingHandler(
+                (DeploymentLifecycleType.DEPLOYING, DeploymentSubStep.AWAITING_PROMOTION),
+                DeployingAwaitingPromotionHandler(
                     deployment_controller=self._deployment_controller,
                     route_controller=self._route_controller,
                     evaluator=evaluator,

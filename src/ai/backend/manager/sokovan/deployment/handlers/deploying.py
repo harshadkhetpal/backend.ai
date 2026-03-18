@@ -6,7 +6,7 @@ Each handler calls the strategy evaluator and applier directly in ``execute()``.
 
 Sub-step flow::
 
-    PROVISIONING ──(success)──▸ PROGRESSING
+    PROVISIONING ──(success)──▸ AWAITING_PROMOTION
          │                           │
          │ (expired/give_up)  ┌──────┴──────┐
          ▼                    ▼              ▼
@@ -14,11 +14,7 @@ Sub-step flow::
          │                    │              │
          │ (success)          │ (success)    │ (success)
          ▼                    ▼              ▼
-    ROLLED_BACK             READY       ROLLED_BACK
-         │                                   │
-         │ (success, via Progressing)         │ (success, via Progressing)
-         ▼                                   ▼
-       READY                               READY
+       READY                READY          READY
 
 The evaluator determines sub-step assignments and route mutations;
 the applier persists them to DB atomically.  Each handler classifies
@@ -71,7 +67,7 @@ class DeployingProvisioningHandler(DeploymentHandler):
 
     New-revision routes are being created; waiting for them to become HEALTHY.
     The evaluator assigns sub-steps; when all new routes are healthy the
-    deployment advances to PROGRESSING (success), otherwise it stays in
+    deployment advances to AWAITING_PROMOTION (success), otherwise it stays in
     PROVISIONING (skipped — no state transition).
     """
 
@@ -113,7 +109,7 @@ class DeployingProvisioningHandler(DeploymentHandler):
         return DeploymentStatusTransitions(
             success=DeploymentLifecycleStatus(
                 lifecycle=EndpointLifecycle.DEPLOYING,
-                sub_status=DeploymentSubStep.PROGRESSING,
+                sub_status=DeploymentSubStep.AWAITING_PROMOTION,
             ),
             need_retry=None,
             expired=DeploymentLifecycleStatus(
@@ -146,8 +142,8 @@ class DeployingProvisioningHandler(DeploymentHandler):
             if assigned is None:
                 # Evaluation error — handled below
                 continue
-            if assigned == DeploymentSubStep.PROGRESSING:
-                # Advanced to PROGRESSING → success (coordinator transitions)
+            if assigned == DeploymentSubStep.AWAITING_PROMOTION:
+                # Advanced to AWAITING_PROMOTION → success (coordinator transitions)
                 successes.append(deployment)
             else:
                 # Still PROVISIONING → skip (no state transition)
@@ -174,16 +170,15 @@ class DeployingProvisioningHandler(DeploymentHandler):
         await self._route_controller.mark_lifecycle_needed(RouteLifecycleType.PROVISIONING)
 
 
-class DeployingProgressingHandler(DeploymentHandler):
-    """Handler for DEPLOYING / PROGRESSING (+ COMPLETED, ROLLED_BACK).
+class DeployingAwaitingPromotionHandler(DeploymentHandler):
+    """Handler for DEPLOYING / AWAITING_PROMOTION (+ COMPLETED).
 
-    This single handler processes three sub-steps:
+    This handler processes two sub-steps:
 
-    - **PROGRESSING**: Still replacing routes — re-evaluate next cycle.
+    - **AWAITING_PROMOTION**: All new routes healthy, waiting for promotion
+      trigger (manual approval or delay timer) — re-evaluate next cycle.
     - **COMPLETED**: Applier has swapped revision → returned as success
       → coordinator transitions to READY.
-    - **ROLLED_BACK**: Applier has cleared deploying_revision → returned
-      as error → coordinator transitions to READY.
     """
 
     def __init__(
@@ -201,7 +196,7 @@ class DeployingProgressingHandler(DeploymentHandler):
     @classmethod
     @override
     def name(cls) -> str:
-        return "deploying-progressing"
+        return "deploying-awaiting-promotion"
 
     @property
     @override
@@ -214,15 +209,11 @@ class DeployingProgressingHandler(DeploymentHandler):
         return [
             DeploymentLifecycleStatus(
                 lifecycle=EndpointLifecycle.DEPLOYING,
-                sub_status=DeploymentSubStep.PROGRESSING,
+                sub_status=DeploymentSubStep.AWAITING_PROMOTION,
             ),
             DeploymentLifecycleStatus(
                 lifecycle=EndpointLifecycle.DEPLOYING,
                 sub_status=DeploymentSubStep.COMPLETED,
-            ),
-            DeploymentLifecycleStatus(
-                lifecycle=EndpointLifecycle.DEPLOYING,
-                sub_status=DeploymentSubStep.ROLLED_BACK,
             ),
         ]
 
@@ -273,7 +264,7 @@ class DeployingProgressingHandler(DeploymentHandler):
         errors: list[DeploymentExecutionError] = []
         skipped: list[DeploymentWithHistory] = []
 
-        terminal_ids = apply_result.completed_ids | apply_result.rolled_back_ids
+        terminal_ids = apply_result.completed_ids
         evaluation_error_ids = {e.deployment.id for e in summary.errors}
 
         # COMPLETED → successes (coordinator transitions to READY)
@@ -283,20 +274,6 @@ class DeployingProgressingHandler(DeploymentHandler):
             deployment = deployment_map.get(endpoint_id)
             if deployment is not None:
                 successes.append(deployment)
-
-        # ROLLED_BACK → errors (coordinator transitions to READY)
-        for endpoint_id in apply_result.rolled_back_ids:
-            if endpoint_id in destroying_ids:
-                continue
-            deployment = deployment_map.get(endpoint_id)
-            if deployment is not None:
-                errors.append(
-                    DeploymentExecutionError(
-                        deployment_info=deployment,
-                        reason="Deployment rolled back — all new routes failed",
-                        error_detail="Strategy FSM determined rollback",
-                    )
-                )
 
         # Evaluation errors → execution errors
         for error_data in summary.errors:
@@ -310,7 +287,7 @@ class DeployingProgressingHandler(DeploymentHandler):
                     )
                 )
 
-        # Still PROGRESSING → skipped (no state transition)
+        # Still AWAITING_PROMOTION → skipped (no state transition)
         for deployment in deployments:
             endpoint_id = deployment.deployment_info.id
             if (
@@ -325,7 +302,7 @@ class DeployingProgressingHandler(DeploymentHandler):
     @override
     async def post_process(self, result: DeploymentExecutionResult) -> None:
         await self._deployment_controller.mark_lifecycle_needed(
-            DeploymentLifecycleType.DEPLOYING, sub_step=DeploymentSubStep.PROGRESSING
+            DeploymentLifecycleType.DEPLOYING, sub_step=DeploymentSubStep.AWAITING_PROMOTION
         )
         await self._route_controller.mark_lifecycle_needed(RouteLifecycleType.PROVISIONING)
 
@@ -333,11 +310,8 @@ class DeployingProgressingHandler(DeploymentHandler):
 class DeployingRollingBackHandler(DeploymentHandler):
     """Handler for DEPLOYING / ROLLING_BACK sub-step.
 
-    Actively rolling back failed new-revision routes to the previous revision.
-    The evaluator re-evaluates the deployment (which is now in ROLLING_BACK)
-    and the applier drains new-revision routes and restores old-revision routes.
-    Once rollback is complete, the evaluator assigns ROLLED_BACK, which the
-    ProgressingHandler will pick up and transition to READY.
+    Clears ``deploying_revision`` and transitions to READY,
+    completing the rollback process.
     """
 
     def __init__(
@@ -375,20 +349,15 @@ class DeployingRollingBackHandler(DeploymentHandler):
     @classmethod
     @override
     def status_transitions(cls) -> DeploymentStatusTransitions:
+        ready = DeploymentLifecycleStatus(
+            lifecycle=EndpointLifecycle.READY,
+            sub_status=None,
+        )
         return DeploymentStatusTransitions(
-            success=DeploymentLifecycleStatus(
-                lifecycle=EndpointLifecycle.DEPLOYING,
-                sub_status=DeploymentSubStep.ROLLED_BACK,
-            ),
+            success=ready,
             need_retry=None,
-            expired=DeploymentLifecycleStatus(
-                lifecycle=EndpointLifecycle.DEPLOYING,
-                sub_status=DeploymentSubStep.ROLLED_BACK,
-            ),
-            give_up=DeploymentLifecycleStatus(
-                lifecycle=EndpointLifecycle.DEPLOYING,
-                sub_status=DeploymentSubStep.ROLLED_BACK,
-            ),
+            expired=ready,
+            give_up=ready,
         )
 
     @override
@@ -401,7 +370,7 @@ class DeployingRollingBackHandler(DeploymentHandler):
         summary = await self._evaluator.evaluate(deployment_infos)
         await self._applier.apply(summary)
 
-        # Successfully evaluated deployments → successes (coordinator transitions to ROLLED_BACK)
+        # Successfully evaluated deployments → successes (coordinator transitions to READY)
         evaluated_ids = set(summary.assignments.keys())
         successes = [
             deployment

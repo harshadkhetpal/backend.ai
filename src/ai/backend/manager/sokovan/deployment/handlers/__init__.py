@@ -4,7 +4,7 @@ Deployment lifecycle operation handlers.
 
 from .base import DeploymentHandler
 from .deploying import (
-    DeployingProgressingHandler,
+    DeployingAwaitingPromotionHandler,
     DeployingProvisioningHandler,
     DeployingRollingBackHandler,
 )
@@ -17,7 +17,7 @@ from .scaling import ScalingDeploymentHandler
 __all__ = [
     "CheckPendingDeploymentHandler",
     "CheckReplicaDeploymentHandler",
-    "DeployingProgressingHandler",
+    "DeployingAwaitingPromotionHandler",
     "DeployingProvisioningHandler",
     "DeployingRollingBackHandler",
     "DeploymentHandler",

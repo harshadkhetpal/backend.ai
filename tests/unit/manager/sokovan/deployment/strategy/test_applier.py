@@ -70,47 +70,38 @@ def summary_with_rollout() -> StrategyEvaluationSummary:
 @pytest.fixture
 def summary_with_drain() -> StrategyEvaluationSummary:
     return _build_summary(
-        {uuid4(): DeploymentSubStep.PROGRESSING},
+        {uuid4(): DeploymentSubStep.AWAITING_PROMOTION},
         route_changes=RouteChanges(drain_route_ids=[uuid4()]),
     )
 
 
 @pytest.fixture
 def completed_summary() -> tuple[StrategyEvaluationSummary, set[UUID]]:
-    ep_id_1 = uuid4()
-    ep_id_2 = uuid4()
-    completed_ids = {ep_id_1, ep_id_2}
+    endpoint_id_1 = uuid4()
+    endpoint_id_2 = uuid4()
+    completed_ids = {endpoint_id_1, endpoint_id_2}
     summary = _build_summary({
-        ep_id_1: DeploymentSubStep.COMPLETED,
-        ep_id_2: DeploymentSubStep.COMPLETED,
+        endpoint_id_1: DeploymentSubStep.COMPLETED,
+        endpoint_id_2: DeploymentSubStep.COMPLETED,
     })
     return summary, completed_ids
 
 
 @pytest.fixture
-def rolled_back_summary() -> tuple[StrategyEvaluationSummary, set[UUID]]:
-    ep_id = uuid4()
-    summary = _build_summary({ep_id: DeploymentSubStep.ROLLED_BACK})
-    return summary, {ep_id}
-
-
-@pytest.fixture
-def mixed_summary() -> tuple[StrategyEvaluationSummary, UUID, UUID, UUID]:
+def mixed_summary() -> tuple[StrategyEvaluationSummary, UUID, UUID]:
     provisioning_id = uuid4()
     completed_id = uuid4()
-    rolled_back_id = uuid4()
     summary = _build_summary(
         {
             provisioning_id: DeploymentSubStep.PROVISIONING,
             completed_id: DeploymentSubStep.COMPLETED,
-            rolled_back_id: DeploymentSubStep.ROLLED_BACK,
         },
         route_changes=RouteChanges(
             rollout_specs=[MagicMock()],
             drain_route_ids=[uuid4()],
         ),
     )
-    return summary, provisioning_id, completed_id, rolled_back_id
+    return summary, provisioning_id, completed_id
 
 
 # =============================================================================
@@ -131,7 +122,6 @@ class TestStrategyResultApplier:
 
         mock_deployment_repo.apply_strategy_mutations.assert_not_called()
         assert result.completed_ids == set()
-        assert result.rolled_back_ids == set()
         assert result.routes_created == 0
         assert result.routes_drained == 0
 
@@ -146,7 +136,6 @@ class TestStrategyResultApplier:
         mock_deployment_repo.apply_strategy_mutations.assert_called_once()
         kwargs = mock_deployment_repo.apply_strategy_mutations.call_args.kwargs
         assert kwargs["completed_ids"] == set()
-        assert kwargs["rolled_back_ids"] == set()
         assert kwargs["drain"] is None
         assert not kwargs["rollout"].specs
         assert result.routes_created == 0
@@ -202,31 +191,15 @@ class TestStrategyResultApplier:
 
         kwargs = mock_deployment_repo.apply_strategy_mutations.call_args.kwargs
         assert kwargs["completed_ids"] == completed_ids
-        assert kwargs["rolled_back_ids"] == set()
         assert result.completed_ids == completed_ids
-
-    async def test_rolled_back_passes_rolled_back_ids(
-        self,
-        applier: StrategyResultApplier,
-        mock_deployment_repo: AsyncMock,
-        rolled_back_summary: tuple[StrategyEvaluationSummary, set[UUID]],
-    ) -> None:
-        summary, rolled_back_ids = rolled_back_summary
-
-        result = await applier.apply(summary)
-
-        kwargs = mock_deployment_repo.apply_strategy_mutations.call_args.kwargs
-        assert kwargs["rolled_back_ids"] == rolled_back_ids
-        assert kwargs["completed_ids"] == set()
-        assert result.rolled_back_ids == rolled_back_ids
 
     async def test_mixed_assignments_handles_all(
         self,
         applier: StrategyResultApplier,
         mock_deployment_repo: AsyncMock,
-        mixed_summary: tuple[StrategyEvaluationSummary, UUID, UUID, UUID],
+        mixed_summary: tuple[StrategyEvaluationSummary, UUID, UUID],
     ) -> None:
-        summary, _provisioning_id, completed_id, rolled_back_id = mixed_summary
+        summary, _provisioning_id, completed_id = mixed_summary
         mock_deployment_repo.apply_strategy_mutations.return_value = 1
 
         result = await applier.apply(summary)
@@ -234,11 +207,9 @@ class TestStrategyResultApplier:
         mock_deployment_repo.apply_strategy_mutations.assert_called_once()
         kwargs = mock_deployment_repo.apply_strategy_mutations.call_args.kwargs
         assert kwargs["completed_ids"] == {completed_id}
-        assert kwargs["rolled_back_ids"] == {rolled_back_id}
         assert len(kwargs["rollout"].specs) == 1
         assert kwargs["drain"] is not None
         assert result.completed_ids == {completed_id}
-        assert result.rolled_back_ids == {rolled_back_id}
         assert result.routes_created == 1
         assert result.routes_drained == 1
 
