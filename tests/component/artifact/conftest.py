@@ -4,7 +4,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 import sqlalchemy as sa
@@ -12,8 +12,11 @@ from sqlalchemy.ext.asyncio.engine import AsyncEngine as SAEngine
 
 from ai.backend.common.bgtask.bgtask import BackgroundTaskManager
 from ai.backend.manager.actions.validators import ActionValidators
+from ai.backend.manager.actions.validators.rbac import RBACValidators
 from ai.backend.manager.api.rest.artifact.handler import ArtifactHandler
 from ai.backend.manager.api.rest.artifact.registry import register_artifact_routes
+from ai.backend.manager.api.rest.artifact_registry.handler import ArtifactRegistryHandler
+from ai.backend.manager.api.rest.artifact_registry.registry import register_artifact_registry_routes
 from ai.backend.manager.api.rest.routing import RouteRegistry
 from ai.backend.manager.api.rest.types import RouteDeps
 from ai.backend.manager.config.provider import ManagerConfigProvider
@@ -76,7 +79,11 @@ def artifact_processors(
         config_provider=config_provider,
     )
     return ArtifactProcessors(
-        service=service, action_monitors=[], validators=MagicMock(spec=ActionValidators)
+        service=service,
+        action_monitors=[],
+        validators=ActionValidators(
+            rbac=RBACValidators(scope=AsyncMock(), single_entity=AsyncMock()),
+        ),
     )
 
 
@@ -111,7 +118,11 @@ def artifact_revision_processors(
         background_task_manager=background_task_manager,
     )
     return ArtifactRevisionProcessors(
-        service=service, action_monitors=[], validators=MagicMock(spec=ActionValidators)
+        service=service,
+        action_monitors=[],
+        validators=ActionValidators(
+            rbac=RBACValidators(scope=AsyncMock(), single_entity=AsyncMock()),
+        ),
     )
 
 
@@ -125,6 +136,13 @@ def server_module_registries(
     return [
         register_artifact_routes(
             ArtifactHandler(
+                artifact=artifact_processors,
+                artifact_revision=artifact_revision_processors,
+            ),
+            route_deps,
+        ),
+        register_artifact_registry_routes(
+            ArtifactRegistryHandler(
                 artifact=artifact_processors,
                 artifact_revision=artifact_revision_processors,
             ),

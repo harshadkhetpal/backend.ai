@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from functools import cached_property, partial
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,7 @@ from ai.backend.common.types import AgentId, ImageID, KernelId, SessionId
 from ai.backend.manager.data.agent.types import AgentDetailData
 from ai.backend.manager.data.artifact.types import ArtifactData, ArtifactRevisionData
 from ai.backend.manager.data.artifact_registries.types import ArtifactRegistryData
+from ai.backend.manager.data.audit_log.types import AuditLogData
 from ai.backend.manager.data.container_registry.types import ContainerRegistryData
 from ai.backend.manager.data.deployment.types import (
     DeploymentHistoryData,
@@ -50,6 +52,7 @@ from .agent import load_agents_by_ids, load_container_counts
 from .artifact import load_artifacts_by_ids
 from .artifact_registry import load_artifact_registries_by_ids
 from .artifact_revision import load_artifact_revisions_by_ids
+from .audit_log import load_audit_logs_by_ids
 from .container_registry import load_container_registries_by_ids
 from .deployment import (
     load_access_tokens_by_ids,
@@ -62,7 +65,7 @@ from .deployment import (
 )
 from .domain import load_domains_by_names
 from .huggingface_registry import load_huggingface_registries_by_ids
-from .image import load_alias_by_ids, load_images_by_ids
+from .image import load_alias_by_ids, load_image_last_used_by_ids, load_images_by_ids
 from .kernel import load_kernels_by_ids
 from .notification import load_channels_by_ids, load_rules_by_ids
 from .object_storage import load_object_storages_by_ids
@@ -75,6 +78,7 @@ from .rbac import (
     load_permissions_by_role_ids,
     load_role_assignments_by_ids,
     load_role_assignments_by_role_and_user_ids,
+    load_role_assignments_by_user_ids,
     load_roles_by_ids,
 )
 from .reservoir_registry import load_reservoir_registries_by_ids
@@ -103,6 +107,12 @@ class DataLoaders:
 
     def __init__(self, processors: Processors) -> None:
         self._processors = processors
+
+    @cached_property
+    def audit_log_loader(
+        self,
+    ) -> DataLoader[uuid.UUID, AuditLogData | None]:
+        return DataLoader(load_fn=partial(load_audit_logs_by_ids, self._processors.audit_log))
 
     @cached_property
     def resource_group_loader(
@@ -241,6 +251,13 @@ class DataLoaders:
         return DataLoader(load_fn=partial(load_sessions_by_ids, self._processors.session))
 
     @cached_property
+    def image_last_used_loader(
+        self,
+    ) -> DataLoader[ImageID, datetime | None]:
+        """Load the most recent session creation timestamp for an image."""
+        return DataLoader(load_fn=partial(load_image_last_used_by_ids, self._processors.image))
+
+    @cached_property
     def image_alias_loader(
         self,
     ) -> DataLoader[uuid.UUID, ImageAliasData | None]:
@@ -356,6 +373,17 @@ class DataLoaders:
         return DataLoader(
             load_fn=partial(
                 load_role_assignments_by_role_and_user_ids,
+                self._processors.permission_controller,
+            )
+        )
+
+    @cached_property
+    def role_assignments_by_user_loader(
+        self,
+    ) -> DataLoader[uuid.UUID, list[AssignedUserData]]:
+        return DataLoader(
+            load_fn=partial(
+                load_role_assignments_by_user_ids,
                 self._processors.permission_controller,
             )
         )

@@ -4,7 +4,7 @@ import secrets
 import uuid
 from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 import sqlalchemy as sa
@@ -21,6 +21,7 @@ from ai.backend.common.types import (
     VFolderUsageMode,
 )
 from ai.backend.manager.actions.validators import ActionValidators
+from ai.backend.manager.actions.validators.rbac import RBACValidators
 
 # Statically imported so that Pants includes these modules in the test PEX.
 # build_root_app() loads them at runtime via importlib.import_module(),
@@ -32,6 +33,7 @@ from ai.backend.manager.api.rest.vfolder.handler import VFolderHandler
 from ai.backend.manager.api.rest.vfolder.registry import register_vfolder_routes
 from ai.backend.manager.config.provider import ManagerConfigProvider
 from ai.backend.manager.data.vfolder.types import (
+    VFolderInvitationState,
     VFolderMountPermission,
     VFolderOperationStatus,
     VFolderOwnershipType,
@@ -62,6 +64,8 @@ _VFOLDER_SERVER_SUBAPP_MODULES = (_auth_api,)
 
 VFolderFixtureData = dict[str, Any]
 VFolderFactory = Callable[..., Coroutine[Any, Any, VFolderFixtureData]]
+InvitationFixtureData = dict[str, Any]
+InvitationFactory = Callable[..., Coroutine[Any, Any, InvitationFixtureData]]
 
 
 @pytest.fixture()
@@ -108,7 +112,11 @@ def vfolder_processors(
         valkey_stat_client=valkey_clients.stat,
     )
     return VFolderProcessors(
-        service=service, action_monitors=[], validators=MagicMock(spec=ActionValidators)
+        service=service,
+        action_monitors=[],
+        validators=ActionValidators(
+            rbac=RBACValidators(scope=AsyncMock(), single_entity=AsyncMock())
+        ),
     )
 
 
@@ -127,7 +135,11 @@ def vfolder_file_processors(
         user_repository=user_repository,
     )
     return VFolderFileProcessors(
-        service=service, action_monitors=[], validators=MagicMock(spec=ActionValidators)
+        service=service,
+        action_monitors=[],
+        validators=ActionValidators(
+            rbac=RBACValidators(scope=AsyncMock(), single_entity=AsyncMock())
+        ),
     )
 
 
@@ -144,7 +156,11 @@ def vfolder_invite_processors(
         user_repository=user_repository,
     )
     return VFolderInviteProcessors(
-        service=service, action_monitors=[], validators=MagicMock(spec=ActionValidators)
+        service=service,
+        action_monitors=[],
+        validators=ActionValidators(
+            rbac=RBACValidators(scope=AsyncMock(), single_entity=AsyncMock())
+        ),
     )
 
 
@@ -161,7 +177,11 @@ def vfolder_sharing_processors(
         user_repository=user_repository,
     )
     return VFolderSharingProcessors(
-        service=service, action_monitors=[], validators=MagicMock(spec=ActionValidators)
+        service=service,
+        action_monitors=[],
+        validators=ActionValidators(
+            rbac=RBACValidators(scope=AsyncMock(), single_entity=AsyncMock())
+        ),
     )
 
 
@@ -299,3 +319,52 @@ async def target_vfolder(
 ) -> VFolderFixtureData:
     """Pre-created vfolder for tests that need an existing vfolder."""
     return await vfolder_factory()
+
+
+@pytest.fixture()
+async def trash_vfolder(
+    vfolder_factory: VFolderFactory,
+) -> VFolderFixtureData:
+    """Pre-created vfolder in DELETE_PENDING (trash bin) state."""
+    return await vfolder_factory(status=VFolderOperationStatus.DELETE_PENDING)
+
+
+@pytest.fixture()
+async def invitation_factory(
+    db_engine: SAEngine,
+    admin_user_fixture: Any,
+) -> AsyncIterator[InvitationFactory]:
+    """Factory that inserts vfolder_invitation rows directly into DB.
+
+    Defaults to a PENDING invitation from the admin user to the given invitee.
+    Cleans up all created invitation rows on teardown.
+    """
+    created_ids: list[uuid.UUID] = []
+
+    async def _create(
+        vfolder_id: uuid.UUID,
+        invitee_email: str,
+        **overrides: Any,
+    ) -> InvitationFixtureData:
+        inv_id = uuid.uuid4()
+        defaults: dict[str, Any] = {
+            "id": inv_id,
+            "permission": VFolderMountPermission.READ_ONLY,
+            "inviter": admin_user_fixture.email,
+            "invitee": invitee_email,
+            "state": VFolderInvitationState.PENDING,
+            "vfolder": vfolder_id,
+        }
+        defaults.update(overrides)
+        async with db_engine.begin() as conn:
+            await conn.execute(sa.insert(vfolder_invitations).values(**defaults))
+        created_ids.append(inv_id)
+        return defaults
+
+    yield _create
+
+    async with db_engine.begin() as conn:
+        for inv_id in reversed(created_ids):
+            await conn.execute(
+                vfolder_invitations.delete().where(vfolder_invitations.c.id == inv_id)
+            )

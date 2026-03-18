@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import uuid
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Final, cast
+from typing import TYPE_CHECKING, Final
 
 from ai.backend.common.api_handlers import APIResponse, BodyParam, QueryParam
 from ai.backend.common.dto.manager.field import (
@@ -305,7 +305,7 @@ class VFolderHandler:
             is_owner=True,
             created_at="",
         )
-        resp = VFolderCreateResponse(item=item)
+        resp = VFolderCreateResponse(item)
         return APIResponse.build(HTTPStatus.CREATED, resp)
 
     # ------------------------------------------------------------------
@@ -469,7 +469,7 @@ class VFolderHandler:
             ctx.access_key,
         )
         result = await self._vfolder.list_allowed_types.wait_for_complete(ListAllowedTypesAction())
-        resp = ListAllowedTypesResponse(allowed_types=result.allowed_types)
+        resp = ListAllowedTypesResponse(result.allowed_types)
         return APIResponse.build(HTTPStatus.OK, resp)
 
     # ------------------------------------------------------------------
@@ -517,7 +517,7 @@ class VFolderHandler:
             usage_mode=result.base_info.usage_mode,
             cloneable=result.base_info.cloneable,
         )
-        resp = VFolderGetInfoResponse(item=dto)
+        resp = VFolderGetInfoResponse(dto)
         return APIResponse.build(HTTPStatus.OK, resp)
 
     # ------------------------------------------------------------------
@@ -724,7 +724,8 @@ class VFolderHandler:
                 ),
             )
         )
-        return APIResponse.no_content(HTTPStatus.CREATED)
+        resp = MessageResponse(msg="")
+        return APIResponse.build(HTTPStatus.OK, resp)
 
     # ------------------------------------------------------------------
     # 13. update_vfolder_options (POST /{name}/update-options)
@@ -768,7 +769,8 @@ class VFolderHandler:
                 ),
             )
         )
-        return APIResponse.no_content(HTTPStatus.CREATED)
+        resp = MessageResponse(msg="")
+        return APIResponse.build(HTTPStatus.OK, resp)
 
     # ------------------------------------------------------------------
     # 14. mkdir (POST /{name}/mkdir)
@@ -800,7 +802,7 @@ class VFolderHandler:
                 exist_ok=params.exist_ok,
             )
         )
-        resp = MkdirResponse(results=cast(list[Any], result.results))
+        resp = MkdirResponse(results=result.results)
         return APIResponse.build(result.storage_resp_status, resp)
 
     # ------------------------------------------------------------------
@@ -1407,11 +1409,11 @@ class VFolderHandler:
 
     async def get_vfolder_id(
         self,
-        query: QueryParam[GetVFolderIDReq],
+        body: BodyParam[GetVFolderIDReq],
         ctx: UserContext,
         req: RequestCtx,
     ) -> APIResponse:
-        params = query.parsed
+        params = body.parsed
         folder_name = params.name
         resolved = await self._vfolder.get_accessible_vfolder.wait_for_complete(
             GetAccessibleVFolderAction(
@@ -1433,7 +1435,7 @@ class VFolderHandler:
             folder_name,
         )
         dto = CompactVFolderInfoDTO(id=row["id"], name=folder_name)
-        resp = VFolderGetIDResponse(item=dto)
+        resp = VFolderGetIDResponse(dto)
         return APIResponse.build(HTTPStatus.OK, resp)
 
     # ------------------------------------------------------------------

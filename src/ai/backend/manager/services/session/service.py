@@ -30,6 +30,7 @@ from ai.backend.common.exception import (
 from ai.backend.common.json import load_json
 from ai.backend.common.plugin.monitor import ErrorPluginContext
 from ai.backend.common.types import (
+    ContainerId,
     ImageAlias,
     SessionId,
     SessionTypes,
@@ -464,6 +465,7 @@ class SessionService:
         image = action.params.image
         architecture = action.params.architecture
         priority = action.params.priority
+        is_preemptible = action.params.is_preemptible
         bootstrap_script = action.params.bootstrap_script
         dependencies = action.params.dependencies
         startup_command = action.params.startup_command
@@ -509,6 +511,7 @@ class SessionService:
                 cluster_size,
                 reuse=reuse_if_exists,
                 priority=priority,
+                is_preemptible=is_preemptible,
                 enqueue_only=enqueue_only,
                 max_wait_seconds=max_wait_seconds,
                 bootstrap_script=bootstrap_script,
@@ -662,6 +665,7 @@ class SessionService:
         image = params["image"]
         architecture = params["architecture"]
         priority = params["priority"]
+        is_preemptible = params.get("is_preemptible", True)
         bootstrap_script = params["bootstrap_script"]
         dependencies = params["dependencies"]
         startup_command = params["startup_command"]
@@ -708,6 +712,7 @@ class SessionService:
                 cluster_size,
                 reuse=reuse_if_exists,
                 priority=priority,
+                is_preemptible=is_preemptible,
                 enqueue_only=enqueue_only,
                 max_wait_seconds=max_wait_seconds,
                 bootstrap_script=bootstrap_script,
@@ -1085,9 +1090,9 @@ class SessionService:
             architecture=sess.main_kernel.architecture or "",
             registry=sess.main_kernel.registry,
             tag=sess.tag,
-            container_id=uuid.UUID(sess.main_kernel.container_id)
+            container_id=ContainerId(sess.main_kernel.container_id)
             if sess.main_kernel.container_id
-            else uuid.uuid4(),
+            else ContainerId(""),
             occupied_slots=str(sess.main_kernel.occupied_slots),  # legacy
             occupying_slots=str(sess.occupying_slots),
             requested_slots=str(sess.requested_slots),

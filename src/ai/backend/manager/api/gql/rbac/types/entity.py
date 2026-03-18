@@ -20,7 +20,12 @@ from ai.backend.manager.api.gql.types import GQLFilter, GQLOrderBy, StrawberryGQ
 from ai.backend.manager.data.permission.association_scopes_entities import (
     AssociationScopesEntitiesData,
 )
-from ai.backend.manager.repositories.base import QueryCondition, QueryOrder
+from ai.backend.manager.repositories.base import (
+    QueryCondition,
+    QueryOrder,
+    combine_conditions_or,
+    negate_conditions,
+)
 from ai.backend.manager.repositories.permission_controller.options import (
     EntityScopeConditions,
     EntityScopeOrders,
@@ -60,6 +65,7 @@ class EntityRefGQL(Node):
     ) -> EntityNode | None:
         from ai.backend.common.types import ImageID
         from ai.backend.manager.api.gql.artifact.types import ArtifactRevision
+        from ai.backend.manager.api.gql.container_registry.types import ContainerRegistryGQL
         from ai.backend.manager.api.gql.deployment.types.deployment import ModelDeployment
         from ai.backend.manager.api.gql.domain_v2.types.node import DomainV2GQL
         from ai.backend.manager.api.gql.image.types import ImageV2GQL
@@ -133,13 +139,18 @@ class EntityRefGQL(Node):
                 if rev_data is None:
                     return None
                 return ArtifactRevision.from_dataclass(rev_data)
+            case RBACElementType.CONTAINER_REGISTRY:
+                cr_data = await data_loaders.container_registry_loader.load(
+                    uuid.UUID(self.entity_id)
+                )
+                if cr_data is None:
+                    return None
+                return ContainerRegistryGQL.from_data(cr_data)
             case (
                 RBACElementType.SESSION
                 | RBACElementType.VFOLDER
-                | RBACElementType.DEPLOYMENT
                 | RBACElementType.KEYPAIR
                 | RBACElementType.NETWORK
-                | RBACElementType.CONTAINER_REGISTRY
                 | RBACElementType.STORAGE_HOST
                 | RBACElementType.ARTIFACT
                 | RBACElementType.ARTIFACT_REGISTRY
@@ -154,6 +165,8 @@ class EntityRefGQL(Node):
                 | RBACElementType.AGENT
                 | RBACElementType.KERNEL
                 | RBACElementType.ROUTING
+                | RBACElementType.DEPLOYMENT_TOKEN
+                | RBACElementType.DEPLOYMENT_POLICY
             ):
                 return None
 
@@ -189,6 +202,9 @@ class EntityRefGQL(Node):
 class EntityFilter(GQLFilter):
     entity_type: RBACElementTypeGQL | None = None
     entity_id: StringFilter | None = None
+    AND: list[Self] | None = None
+    OR: list[Self] | None = None
+    NOT: list[Self] | None = None
 
     @override
     def build_conditions(self) -> list[QueryCondition]:
@@ -208,6 +224,27 @@ class EntityFilter(GQLFilter):
             )
             if condition:
                 conditions.append(condition)
+
+        # Handle AND logical operator
+        if self.AND:
+            for sub_filter in self.AND:
+                conditions.extend(sub_filter.build_conditions())
+
+        # Handle OR logical operator
+        if self.OR:
+            or_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.OR:
+                or_sub_conditions.extend(sub_filter.build_conditions())
+            if or_sub_conditions:
+                conditions.append(combine_conditions_or(or_sub_conditions))
+
+        # Handle NOT logical operator
+        if self.NOT:
+            not_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.NOT:
+                not_sub_conditions.extend(sub_filter.build_conditions())
+            if not_sub_conditions:
+                conditions.append(negate_conditions(not_sub_conditions))
 
         return conditions
 

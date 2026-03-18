@@ -2,7 +2,12 @@ import strawberry
 from strawberry.federation import Schema
 from strawberry.schema.config import StrawberryConfig
 
-from ai.backend.manager.api.gql.extensions import GQLLoggingExtension
+from ai.backend.manager.api.gql.extensions import (
+    GQLExceptionHandlerExtension,
+    GQLLoggingExtension,
+    GQLMetricExtension,
+    GQLValidationExtension,
+)
 
 from .agent import (
     agent_stats,
@@ -41,6 +46,7 @@ from .artifact import (
     update_artifact,
 )
 from .artifact_registry import default_artifact_registry
+from .audit_log import admin_audit_logs_v2
 from .background_task import background_task_events
 from .deployment import (
     # Revision
@@ -126,6 +132,11 @@ from .image import (
     image_v2,
 )
 from .kernel.resolver import admin_kernels_v2, kernel_v2, session_kernels_v2
+from .keypair import (
+    issue_my_keypair,
+    revoke_my_keypair,
+    switch_my_main_access_key,
+)
 from .notification import (
     admin_create_notification_channel,
     admin_create_notification_rule,
@@ -168,8 +179,18 @@ from .project_v2 import (
     project_domain_v2,
     project_v2,
 )
+from .prometheus_query_preset import (
+    admin_create_prometheus_query_preset,
+    admin_delete_prometheus_query_preset,
+    admin_modify_prometheus_query_preset,
+    admin_prometheus_query_preset,
+    admin_prometheus_query_preset_result,
+    admin_prometheus_query_presets,
+)
 from .rbac import (
     admin_assign_role,
+    admin_bulk_assign_role,
+    admin_bulk_revoke_role,
     admin_create_permission,
     admin_create_role,
     admin_delete_permission,
@@ -181,6 +202,7 @@ from .rbac import (
     admin_role,
     admin_role_assignments,
     admin_roles,
+    admin_update_permission,
     admin_update_role,
     my_roles,
     rbac_scope_entity_combinations,
@@ -199,6 +221,7 @@ from .resource_group import (
     resource_groups,
     update_resource_group_fair_share_spec,
 )
+from .resource_slot.resolver import resource_slot_type, resource_slot_types
 from .resource_usage import (
     admin_domain_usage_buckets,
     admin_project_usage_buckets,
@@ -246,6 +269,7 @@ from .user import (
     domain_users_v2,
     my_user_v2,
     project_users_v2,
+    update_my_allowed_client_ip,
     update_user_v2,
 )
 from .vfs_storage import (
@@ -307,8 +331,15 @@ class Query:
     admin_user_usage_buckets = admin_user_usage_buckets
     admin_images_v2 = admin_images_v2
     admin_kernels_v2 = admin_kernels_v2
+    admin_audit_logs_v2 = admin_audit_logs_v2
     admin_sessions_v2 = admin_sessions_v2
+    resource_slot_type = resource_slot_type
+    resource_slot_types = resource_slot_types
     admin_image_aliases = admin_image_aliases
+    # Prometheus Query Preset Admin APIs
+    admin_prometheus_query_preset = admin_prometheus_query_preset
+    admin_prometheus_query_presets = admin_prometheus_query_presets
+    admin_prometheus_query_preset_result = admin_prometheus_query_preset_result
     # RBAC Admin APIs
     admin_role = admin_role
     admin_roles = admin_roles
@@ -475,15 +506,28 @@ class Mutation:
     admin_delete_users_v2 = admin_delete_users_v2
     admin_purge_user_v2 = admin_purge_user_v2
     admin_bulk_purge_users_v2 = admin_bulk_purge_users_v2
+    # Keypair self-service mutations
+    issue_my_keypair = issue_my_keypair
+    revoke_my_keypair = revoke_my_keypair
+    switch_my_main_access_key = switch_my_main_access_key
+    # IP allowlist self-service mutation
+    update_my_allowed_client_ip = update_my_allowed_client_ip
+    # Prometheus Query Preset - Admin APIs
+    admin_create_prometheus_query_preset = admin_create_prometheus_query_preset
+    admin_modify_prometheus_query_preset = admin_modify_prometheus_query_preset
+    admin_delete_prometheus_query_preset = admin_delete_prometheus_query_preset
     # RBAC Admin APIs
     admin_create_role = admin_create_role
     admin_update_role = admin_update_role
     admin_delete_role = admin_delete_role
     admin_purge_role = admin_purge_role
     admin_create_permission = admin_create_permission
+    admin_update_permission = admin_update_permission
     admin_delete_permission = admin_delete_permission
     admin_assign_role = admin_assign_role
     admin_revoke_role = admin_revoke_role
+    admin_bulk_assign_role = admin_bulk_assign_role
+    admin_bulk_revoke_role = admin_bulk_revoke_role
 
 
 @strawberry.type
@@ -514,5 +558,8 @@ schema = CustomizedSchema(
     enable_federation_2=True,
     extensions=[
         GQLLoggingExtension,
+        GQLMetricExtension,
+        GQLValidationExtension,
+        GQLExceptionHandlerExtension,
     ],
 )

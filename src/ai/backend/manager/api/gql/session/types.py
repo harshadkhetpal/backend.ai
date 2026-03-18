@@ -46,6 +46,8 @@ from ai.backend.manager.repositories.base import (
     NoPagination,
     QueryCondition,
     QueryOrder,
+    combine_conditions_or,
+    negate_conditions,
 )
 from ai.backend.manager.repositories.scheduler.options import (
     KernelConditions,
@@ -167,6 +169,10 @@ class SessionV2FilterGQL(GQLFilter):
     project_id: UUIDFilter | None = None
     user_uuid: UUIDFilter | None = None
 
+    AND: list[Self] | None = None
+    OR: list[Self] | None = None
+    NOT: list[Self] | None = None
+
     def build_conditions(self) -> list[QueryCondition]:
         conditions: list[QueryCondition] = []
         if self.id:
@@ -212,6 +218,28 @@ class SessionV2FilterGQL(GQLFilter):
             )
             if condition:
                 conditions.append(condition)
+
+        # Handle AND logical operator
+        if self.AND:
+            for sub_filter in self.AND:
+                conditions.extend(sub_filter.build_conditions())
+
+        # Handle OR logical operator
+        if self.OR:
+            or_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.OR:
+                or_sub_conditions.extend(sub_filter.build_conditions())
+            if or_sub_conditions:
+                conditions.append(combine_conditions_or(or_sub_conditions))
+
+        # Handle NOT logical operator
+        if self.NOT:
+            not_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.NOT:
+                not_sub_conditions.extend(sub_filter.build_conditions())
+            if not_sub_conditions:
+                conditions.append(negate_conditions(not_sub_conditions))
+
         return conditions
 
 
@@ -260,6 +288,9 @@ class SessionV2MetadataInfoGQL:
     )
     cluster_size: int = strawberry.field(description="Number of nodes in the cluster.")
     priority: int = strawberry.field(description="Scheduling priority of the session.")
+    is_preemptible: bool = strawberry.field(
+        description="Whether this session is eligible for preemption by higher-priority sessions."
+    )
     tag: str | None = strawberry.field(description="Optional user-provided tag for the session.")
 
 
@@ -501,6 +532,7 @@ class SessionV2GQL(Node):
                 cluster_mode=ClusterModeGQL.from_internal(data.cluster_mode),
                 cluster_size=data.cluster_size,
                 priority=data.priority,
+                is_preemptible=data.is_preemptible,
                 tag=data.tag,
             ),
             resource=SessionV2ResourceInfoGQL(

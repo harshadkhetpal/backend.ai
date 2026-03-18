@@ -21,13 +21,21 @@ from ai.backend.manager.api.gql.types import GQLFilter, GQLOrderBy, StrawberryGQ
 from ai.backend.manager.data.permission.permission import PermissionData
 from ai.backend.manager.errors.api import InvalidAPIParameters
 from ai.backend.manager.models.rbac_models.permission.permission import PermissionRow
-from ai.backend.manager.repositories.base import QueryCondition, QueryOrder
+from ai.backend.manager.repositories.base import (
+    QueryCondition,
+    QueryOrder,
+    combine_conditions_or,
+    negate_conditions,
+)
 from ai.backend.manager.repositories.base.creator import Creator
+from ai.backend.manager.repositories.base.updater import Updater
 from ai.backend.manager.repositories.permission_controller.creators import PermissionCreatorSpec
 from ai.backend.manager.repositories.permission_controller.options import (
     ScopedPermissionConditions,
     ScopedPermissionOrders,
 )
+from ai.backend.manager.repositories.permission_controller.updaters import PermissionUpdaterSpec
+from ai.backend.manager.types import OptionalState
 
 if TYPE_CHECKING:
     from ai.backend.manager.api.gql.rbac.types.role import RoleGQL
@@ -48,7 +56,6 @@ class RBACElementTypeGQL(StrEnum):
     # Root-query-enabled entities (scoped)
     SESSION = "session"
     VFOLDER = "vfolder"
-    DEPLOYMENT = "deployment"
     MODEL_DEPLOYMENT = "model_deployment"
     KEYPAIR = "keypair"
     NOTIFICATION_CHANNEL = "notification_channel"
@@ -56,6 +63,9 @@ class RBACElementTypeGQL(StrEnum):
     RESOURCE_GROUP = "resource_group"
     CONTAINER_REGISTRY = "container_registry"
     STORAGE_HOST = "storage_host"
+    AGENT = "agent"
+    KERNEL = "kernel"
+    ROUTING = "routing"
     IMAGE = "image"
     ARTIFACT = "artifact"
     ARTIFACT_REGISTRY = "artifact_registry"
@@ -73,6 +83,10 @@ class RBACElementTypeGQL(StrEnum):
 
     # Auto-only entities used in permissions
     NOTIFICATION_RULE = "notification_rule"
+
+    # Auto sub-entities with direct GET APIs
+    DEPLOYMENT_TOKEN = "deployment:token"
+    DEPLOYMENT_POLICY = "deployment:policy"
 
     # Entity-level scopes
     ARTIFACT_REVISION = "artifact_revision"
@@ -173,6 +187,7 @@ class PermissionGQL(Node):
         info: Info[StrawberryGQLContext],
     ) -> EntityNode | None:
         from ai.backend.manager.api.gql.artifact.types import ArtifactRevision
+        from ai.backend.manager.api.gql.container_registry.types import ContainerRegistryGQL
         from ai.backend.manager.api.gql.deployment.types.deployment import ModelDeployment
         from ai.backend.manager.api.gql.domain_v2.types.node import DomainV2GQL
         from ai.backend.manager.api.gql.project_v2.types.node import ProjectV2GQL
@@ -220,14 +235,19 @@ class PermissionGQL(Node):
                 if rev_data is None:
                     return None
                 return ArtifactRevision.from_dataclass(rev_data)
+            case RBACElementType.CONTAINER_REGISTRY:
+                cr_data = await data_loaders.container_registry_loader.load(
+                    uuid.UUID(self.scope_id)
+                )
+                if cr_data is None:
+                    return None
+                return ContainerRegistryGQL.from_data(cr_data)
             case (
                 RBACElementType.SESSION
                 | RBACElementType.VFOLDER
-                | RBACElementType.DEPLOYMENT
                 | RBACElementType.KEYPAIR
                 | RBACElementType.NOTIFICATION_CHANNEL
                 | RBACElementType.NETWORK
-                | RBACElementType.CONTAINER_REGISTRY
                 | RBACElementType.STORAGE_HOST
                 | RBACElementType.IMAGE
                 | RBACElementType.ARTIFACT
@@ -244,6 +264,8 @@ class PermissionGQL(Node):
                 | RBACElementType.AGENT
                 | RBACElementType.KERNEL
                 | RBACElementType.ROUTING
+                | RBACElementType.DEPLOYMENT_TOKEN
+                | RBACElementType.DEPLOYMENT_POLICY
             ):
                 return None
 
@@ -267,6 +289,9 @@ class PermissionFilter(GQLFilter):
     role_id: uuid.UUID | None = None
     scope_type: RBACElementTypeGQL | None = None
     entity_type: RBACElementTypeGQL | None = None
+    AND: list[Self] | None = None
+    OR: list[Self] | None = None
+    NOT: list[Self] | None = None
 
     @override
     def build_conditions(self) -> list[QueryCondition]:
@@ -288,6 +313,27 @@ class PermissionFilter(GQLFilter):
                     self.entity_type.to_element().to_entity_type()
                 )
             )
+
+        # Handle AND logical operator
+        if self.AND:
+            for sub_filter in self.AND:
+                conditions.extend(sub_filter.build_conditions())
+
+        # Handle OR logical operator
+        if self.OR:
+            or_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.OR:
+                or_sub_conditions.extend(sub_filter.build_conditions())
+            if or_sub_conditions:
+                conditions.append(combine_conditions_or(or_sub_conditions))
+
+        # Handle NOT logical operator
+        if self.NOT:
+            not_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.NOT:
+                not_sub_conditions.extend(sub_filter.build_conditions())
+            if not_sub_conditions:
+                conditions.append(negate_conditions(not_sub_conditions))
 
         return conditions
 
@@ -331,6 +377,40 @@ class CreatePermissionInput:
                 operation=self.operation.to_internal(),
             )
         )
+
+
+@strawberry.input(description="Added in 26.3.0. Input for updating a scoped permission")
+class UpdatePermissionInput:
+    id: uuid.UUID
+    scope_type: RBACElementTypeGQL | None = None
+    scope_id: str | None = None
+    entity_type: RBACElementTypeGQL | None = None
+    operation: OperationTypeGQL | None = None
+
+    def to_updater(self) -> Updater[PermissionRow]:
+        spec = PermissionUpdaterSpec(
+            scope_type=(
+                OptionalState.update(self.scope_type.to_element().to_scope_type())
+                if self.scope_type is not None
+                else OptionalState.nop()
+            ),
+            scope_id=(
+                OptionalState.update(self.scope_id)
+                if self.scope_id is not None
+                else OptionalState.nop()
+            ),
+            entity_type=(
+                OptionalState.update(self.entity_type.to_element().to_entity_type())
+                if self.entity_type is not None
+                else OptionalState.nop()
+            ),
+            operation=(
+                OptionalState.update(self.operation.to_internal())
+                if self.operation is not None
+                else OptionalState.nop()
+            ),
+        )
+        return Updater(spec=spec, pk_value=self.id)
 
 
 @strawberry.input(description="Added in 26.3.0. Input for deleting a scoped permission")

@@ -122,28 +122,26 @@ def _mock_json_response(data: dict[str, Any] | list[Any], status: int = 200) -> 
 class TestVFolderCRUD:
     async def test_create(self) -> None:
         response_data = {
-            "item": {
-                "id": "abc123",
-                "name": "my-folder",
-                "quota_scope_id": "qs-1",
-                "host": "local:volume1",
-                "usage_mode": "general",
-                "permission": "rw",
-                "max_size": 0,
-                "creator": "user@test.com",
-                "ownership_type": "user",
-                "cloneable": False,
-                "status": "ready",
-                "created_at": "2025-01-01T00:00:00",
-                "is_owner": True,
-                "user_email": "user@test.com",
-                "group_name": "default",
-                "type": "user",
-                "max_files": 0,
-                "cur_size": 0,
-                "user": None,
-                "group": None,
-            }
+            "id": "abc123",
+            "name": "my-folder",
+            "quota_scope_id": "qs-1",
+            "host": "local:volume1",
+            "usage_mode": "general",
+            "permission": "rw",
+            "max_size": 0,
+            "creator": "user@test.com",
+            "ownership_type": "user",
+            "cloneable": False,
+            "status": "ready",
+            "created_at": "2025-01-01T00:00:00",
+            "is_owner": True,
+            "user_email": "user@test.com",
+            "group_name": "default",
+            "type": "user",
+            "max_files": 0,
+            "cur_size": 0,
+            "user": None,
+            "group": None,
         }
         mock_session = _make_request_session(_mock_json_response(response_data))
         vfolder = _make_vfolder_client(mock_session)
@@ -151,7 +149,7 @@ class TestVFolderCRUD:
         result = await vfolder.create(VFolderCreateReq(name="my-folder"))
 
         assert isinstance(result, VFolderCreateResponse)
-        assert result.item.name == "my-folder"
+        assert result.root.name == "my-folder"
 
         call_args = mock_session.request.call_args
         assert call_args[0][0] == "POST"
@@ -185,21 +183,19 @@ class TestVFolderCRUD:
 
     async def test_get_info(self) -> None:
         response_data = {
-            "item": {
-                "name": "test-folder",
-                "id": "abc123",
-                "quota_scope_id": "qs-1",
-                "host": "local:vol",
-                "status": "ready",
-                "num_files": 10,
-                "used_bytes": 1024,
-                "created_at": "2025-01-01T00:00:00",
-                "type": "user",
-                "is_owner": True,
-                "permission": "rw",
-                "usage_mode": "general",
-                "cloneable": False,
-            }
+            "name": "test-folder",
+            "id": "abc123",
+            "quota_scope_id": "qs-1",
+            "host": "local:vol",
+            "status": "ready",
+            "num_files": 10,
+            "used_bytes": 1024,
+            "created_at": "2025-01-01T00:00:00",
+            "type": "user",
+            "is_owner": True,
+            "permission": "rw",
+            "usage_mode": "general",
+            "cloneable": False,
         }
         mock_session = _make_request_session(_mock_json_response(response_data))
         vfolder = _make_vfolder_client(mock_session)
@@ -207,7 +203,7 @@ class TestVFolderCRUD:
         result = await vfolder.get_info("test-folder")
 
         assert isinstance(result, VFolderGetInfoResponse)
-        assert result.item.name == "test-folder"
+        assert result.root.name == "test-folder"
 
         call_args = mock_session.request.call_args
         assert call_args[0][0] == "GET"
@@ -215,14 +211,14 @@ class TestVFolderCRUD:
 
     async def test_get_id(self) -> None:
         folder_id = uuid.uuid4()
-        response_data = {"item": {"id": str(folder_id), "name": "my-folder"}}
+        response_data = {"id": str(folder_id), "name": "my-folder"}
         mock_session = _make_request_session(_mock_json_response(response_data))
         vfolder = _make_vfolder_client(mock_session)
 
         result = await vfolder.get_id(GetVFolderIDReq(name="my-folder"))
 
         assert isinstance(result, VFolderGetIDResponse)
-        assert result.item.name == "my-folder"
+        assert result.root.name == "my-folder"
 
         call_args = mock_session.request.call_args
         assert call_args[0][0] == "GET"
@@ -367,7 +363,7 @@ class TestVFolderCRUD:
 
 class TestVFolderFileOps:
     async def test_mkdir(self) -> None:
-        response_data: dict[str, Any] = {"results": []}
+        response_data: dict[str, Any] = {"results": {"success": [], "failed": []}}
         mock_session = _make_request_session(_mock_json_response(response_data))
         vfolder = _make_vfolder_client(mock_session)
 
@@ -673,14 +669,14 @@ class TestVFolderAdmin:
         assert "/folders/_/all-hosts" in call_args[0][1]
 
     async def test_list_allowed_types(self) -> None:
-        response_data = {"allowed_types": ["user", "group"]}
+        response_data = ["user", "group"]
         mock_session = _make_request_session(_mock_json_response(response_data))
         vfolder = _make_vfolder_client(mock_session)
 
         result = await vfolder.list_allowed_types()
 
         assert isinstance(result, ListAllowedTypesResponse)
-        assert result.allowed_types == ["user", "group"]
+        assert result.root == ["user", "group"]
 
     async def test_get_quota(self) -> None:
         quota_id = uuid.uuid4()

@@ -16,6 +16,12 @@ from ai.backend.manager.api.gql.rbac.fetcher.role import (
 )
 from ai.backend.manager.api.gql.rbac.types import (
     AssignRoleInput,
+    BulkAssignRoleErrorGQL,
+    BulkAssignRoleInputGQL,
+    BulkAssignRolePayloadGQL,
+    BulkRevokeRoleErrorGQL,
+    BulkRevokeRoleInputGQL,
+    BulkRevokeRolePayloadGQL,
     CreateRoleInput,
     DeleteRoleInput,
     DeleteRolePayload,
@@ -33,6 +39,7 @@ from ai.backend.manager.api.gql.rbac.types import (
     UpdateRoleInput,
 )
 from ai.backend.manager.api.gql.types import StrawberryGQLContext
+from ai.backend.manager.api.gql.utils import check_admin_only
 from ai.backend.manager.models.rbac_models.role import RoleRow
 from ai.backend.manager.repositories.base.purger import Purger
 from ai.backend.manager.repositories.base.updater import Updater
@@ -40,6 +47,12 @@ from ai.backend.manager.repositories.permission_controller.options import Assign
 from ai.backend.manager.repositories.permission_controller.updaters import RoleUpdaterSpec
 from ai.backend.manager.services.permission_contoller.actions.assign_role import (
     AssignRoleAction,
+)
+from ai.backend.manager.services.permission_contoller.actions.bulk_assign_role import (
+    BulkAssignRoleAction,
+)
+from ai.backend.manager.services.permission_contoller.actions.bulk_revoke_role import (
+    BulkRevokeRoleAction,
 )
 from ai.backend.manager.services.permission_contoller.actions.create_role import (
     CreateRoleAction,
@@ -66,6 +79,7 @@ async def admin_role(
     info: Info[StrawberryGQLContext],
     id: uuid.UUID,
 ) -> RoleGQL | None:
+    check_admin_only()
     return await fetch_role(info, id)
 
 
@@ -83,6 +97,7 @@ async def admin_roles(
     limit: int | None = None,
     offset: int | None = None,
 ) -> RoleConnection:
+    check_admin_only()
     return await fetch_roles(
         info,
         filter=filter,
@@ -110,6 +125,7 @@ async def admin_role_assignments(
     limit: int | None = None,
     offset: int | None = None,
 ) -> RoleAssignmentConnection:
+    check_admin_only()
     return await fetch_role_assignments(
         info,
         filter=filter,
@@ -165,6 +181,7 @@ async def admin_create_role(
     info: Info[StrawberryGQLContext],
     input: CreateRoleInput,
 ) -> RoleGQL:
+    check_admin_only()
     action_result = (
         await info.context.processors.permission_controller.create_role.wait_for_complete(
             CreateRoleAction(creator=input.to_creator())
@@ -178,6 +195,7 @@ async def admin_update_role(
     info: Info[StrawberryGQLContext],
     input: UpdateRoleInput,
 ) -> RoleGQL:
+    check_admin_only()
     action_result = (
         await info.context.processors.permission_controller.update_role.wait_for_complete(
             UpdateRoleAction(updater=input.to_updater())
@@ -191,6 +209,7 @@ async def admin_delete_role(
     info: Info[StrawberryGQLContext],
     input: DeleteRoleInput,
 ) -> DeleteRolePayload:
+    check_admin_only()
     updater = Updater(
         spec=RoleUpdaterSpec(
             status=OptionalState.update(RoleStatus.DELETED),
@@ -208,6 +227,7 @@ async def admin_purge_role(
     info: Info[StrawberryGQLContext],
     input: PurgeRoleInput,
 ) -> PurgeRolePayload:
+    check_admin_only()
     purger = Purger(row_class=RoleRow, pk_value=input.id)
     await info.context.processors.permission_controller.purge_role.wait_for_complete(
         PurgeRoleAction(purger=purger)
@@ -220,6 +240,7 @@ async def admin_assign_role(
     info: Info[StrawberryGQLContext],
     input: AssignRoleInput,
 ) -> RoleAssignmentGQL:
+    check_admin_only()
     action_result = (
         await info.context.processors.permission_controller.assign_role.wait_for_complete(
             AssignRoleAction(input=input.to_input())
@@ -233,9 +254,54 @@ async def admin_revoke_role(
     info: Info[StrawberryGQLContext],
     input: RevokeRoleInput,
 ) -> RoleAssignmentGQL:
+    check_admin_only()
     action_result = (
         await info.context.processors.permission_controller.revoke_role.wait_for_complete(
             RevokeRoleAction(input=input.to_input())
         )
     )
     return RoleAssignmentGQL.from_revocation_data(action_result.data)
+
+
+@strawberry.mutation(
+    description="Added in 26.3.0. Bulk assign a role to multiple users (admin only)."
+)  # type: ignore[misc]
+async def admin_bulk_assign_role(
+    info: Info[StrawberryGQLContext],
+    input: BulkAssignRoleInputGQL,
+) -> BulkAssignRolePayloadGQL:
+    check_admin_only()
+    action_result = (
+        await info.context.processors.permission_controller.bulk_assign_role.wait_for_complete(
+            BulkAssignRoleAction(bulk_creator=input.to_bulk_creator())
+        )
+    )
+    return BulkAssignRolePayloadGQL(
+        assigned=[RoleAssignmentGQL.from_assignment_data(s) for s in action_result.data.successes],
+        failed=[
+            BulkAssignRoleErrorGQL(user_id=f.user_id, message=f.message)
+            for f in action_result.data.failures
+        ],
+    )
+
+
+@strawberry.mutation(
+    description="Added in 26.3.0. Bulk revoke a role from multiple users (admin only)."
+)  # type: ignore[misc]
+async def admin_bulk_revoke_role(
+    info: Info[StrawberryGQLContext],
+    input: BulkRevokeRoleInputGQL,
+) -> BulkRevokeRolePayloadGQL:
+    check_admin_only()
+    action_result = (
+        await info.context.processors.permission_controller.bulk_revoke_role.wait_for_complete(
+            BulkRevokeRoleAction(input=input.to_input())
+        )
+    )
+    return BulkRevokeRolePayloadGQL(
+        revoked=[RoleAssignmentGQL.from_revocation_data(s) for s in action_result.data.successes],
+        failed=[
+            BulkRevokeRoleErrorGQL(user_id=f.user_id, message=f.message)
+            for f in action_result.data.failures
+        ],
+    )

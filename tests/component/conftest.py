@@ -74,6 +74,9 @@ from ai.backend.logging import LocalLogger, LogLevel
 from ai.backend.logging.config import ConsoleConfig, LogDriver, LoggingConfig
 from ai.backend.logging.types import LogFormat
 from ai.backend.manager.actions.validators import ActionValidators
+from ai.backend.manager.actions.validators.rbac import RBACValidators
+from ai.backend.manager.actions.validators.rbac.scope import ScopeActionRBACValidator
+from ai.backend.manager.actions.validators.rbac.single_entity import SingleEntityActionRBACValidator
 from ai.backend.manager.agent_cache import AgentRPCCache
 from ai.backend.manager.api import ManagerStatus
 from ai.backend.manager.api.rest.app import build_root_app, mount_registries
@@ -901,6 +904,7 @@ class _TestConfigProvider(ManagerConfigProvider):
                 SlotName("mem"): SlotTypes("bytes"),
             }
         )
+        mock_etcd_loader.get_raw = AsyncMock(return_value="true")
         mock_etcd_loader.update_manager_status = AsyncMock()
         mock_etcd_loader.get_manager_nodes_info = AsyncMock(return_value={})
         mock_etcd_loader.register_myself = AsyncMock()
@@ -1186,7 +1190,14 @@ def auth_processors(
         config_provider=config_provider,
     )
     return AuthProcessors(
-        service=service, action_monitors=[], validators=MagicMock(spec=ActionValidators)
+        service=service,
+        action_monitors=[],
+        validators=ActionValidators(
+            rbac=RBACValidators(
+                scope=MagicMock(spec=ScopeActionRBACValidator),
+                single_entity=MagicMock(spec=SingleEntityActionRBACValidator),
+            ),
+        ),
     )
 
 

@@ -20,6 +20,7 @@ from ai.backend.manager.api.gql.base import OrderDirection, StringFilter
 from ai.backend.manager.api.gql.types import GQLFilter, GQLOrderBy, StrawberryGQLContext
 from ai.backend.manager.data.permission.role import (
     AssignedUserData,
+    BulkUserRoleRevocationInput,
     RoleData,
     RoleDetailData,
     UserRoleAssignmentData,
@@ -28,10 +29,19 @@ from ai.backend.manager.data.permission.role import (
     UserRoleRevocationInput,
 )
 from ai.backend.manager.models.rbac_models.role import RoleRow
-from ai.backend.manager.repositories.base import QueryCondition, QueryOrder
-from ai.backend.manager.repositories.base.creator import Creator
+from ai.backend.manager.models.rbac_models.user_role import UserRoleRow
+from ai.backend.manager.repositories.base import (
+    QueryCondition,
+    QueryOrder,
+    combine_conditions_or,
+    negate_conditions,
+)
+from ai.backend.manager.repositories.base.creator import BulkCreator, Creator
 from ai.backend.manager.repositories.base.updater import Updater
-from ai.backend.manager.repositories.permission_controller.creators import RoleCreatorSpec
+from ai.backend.manager.repositories.permission_controller.creators import (
+    RoleCreatorSpec,
+    UserRoleCreatorSpec,
+)
 from ai.backend.manager.repositories.permission_controller.options import (
     AssignedUserConditions,
     AssignedUserOrders,
@@ -312,7 +322,7 @@ class RoleFilter(GQLFilter):
 
     AND: list[RoleFilter] | None = None
     OR: list[RoleFilter] | None = None
-    NOT: RoleFilter | None = None
+    NOT: list[RoleFilter] | None = None
 
     @override
     def build_conditions(self) -> list[QueryCondition]:
@@ -334,6 +344,27 @@ class RoleFilter(GQLFilter):
         if self.status is not None and len(self.status) > 0:
             conditions.append(RoleConditions.by_statuses([s.to_internal() for s in self.status]))
 
+        # Handle AND logical operator
+        if self.AND:
+            for sub_filter in self.AND:
+                conditions.extend(sub_filter.build_conditions())
+
+        # Handle OR logical operator
+        if self.OR:
+            or_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.OR:
+                or_sub_conditions.extend(sub_filter.build_conditions())
+            if or_sub_conditions:
+                conditions.append(combine_conditions_or(or_sub_conditions))
+
+        # Handle NOT logical operator
+        if self.NOT:
+            not_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.NOT:
+                not_sub_conditions.extend(sub_filter.build_conditions())
+            if not_sub_conditions:
+                conditions.append(negate_conditions(not_sub_conditions))
+
         return conditions
 
 
@@ -352,6 +383,10 @@ class RoleAssignmentRoleNestedFilterGQL:
     source: list[RoleSourceGQL] | None = None
     status: list[RoleStatusGQL] | None = None
 
+    AND: list[RoleAssignmentRoleNestedFilterGQL] | None = None
+    OR: list[RoleAssignmentRoleNestedFilterGQL] | None = None
+    NOT: list[RoleAssignmentRoleNestedFilterGQL] | None = None
+
     def build_conditions(self) -> list[QueryCondition]:
         raw_conditions: list[QueryCondition] = []
         if self.name:
@@ -369,9 +404,32 @@ class RoleAssignmentRoleNestedFilterGQL:
             raw_conditions.append(
                 RoleConditions.by_statuses([s.to_internal() for s in self.status])
             )
-        if not raw_conditions:
-            return []
-        return [AssignedUserConditions.exists_role_combined(raw_conditions)]
+        conditions: list[QueryCondition] = []
+        if raw_conditions:
+            conditions.append(AssignedUserConditions.exists_role_combined(raw_conditions))
+
+        # Handle AND logical operator
+        if self.AND:
+            for sub_filter in self.AND:
+                conditions.extend(sub_filter.build_conditions())
+
+        # Handle OR logical operator
+        if self.OR:
+            or_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.OR:
+                or_sub_conditions.extend(sub_filter.build_conditions())
+            if or_sub_conditions:
+                conditions.append(combine_conditions_or(or_sub_conditions))
+
+        # Handle NOT logical operator
+        if self.NOT:
+            not_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.NOT:
+                not_sub_conditions.extend(sub_filter.build_conditions())
+            if not_sub_conditions:
+                conditions.append(negate_conditions(not_sub_conditions))
+
+        return conditions
 
 
 @strawberry.input(description="Added in 26.3.0. Filter for role assignments")
@@ -380,6 +438,10 @@ class RoleAssignmentFilter(GQLFilter):
     role: RoleAssignmentRoleNestedFilterGQL | None = None
     username: StringFilter | None = None
     email: StringFilter | None = None
+
+    AND: list[RoleAssignmentFilter] | None = None
+    OR: list[RoleAssignmentFilter] | None = None
+    NOT: list[RoleAssignmentFilter] | None = None
 
     @override
     def build_conditions(self) -> list[QueryCondition]:
@@ -410,6 +472,27 @@ class RoleAssignmentFilter(GQLFilter):
             )
             if condition:
                 conditions.append(condition)
+
+        # Handle AND logical operator
+        if self.AND:
+            for sub_filter in self.AND:
+                conditions.extend(sub_filter.build_conditions())
+
+        # Handle OR logical operator
+        if self.OR:
+            or_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.OR:
+                or_sub_conditions.extend(sub_filter.build_conditions())
+            if or_sub_conditions:
+                conditions.append(combine_conditions_or(or_sub_conditions))
+
+        # Handle NOT logical operator
+        if self.NOT:
+            not_sub_conditions: list[QueryCondition] = []
+            for sub_filter in self.NOT:
+                not_sub_conditions.extend(sub_filter.build_conditions())
+            if not_sub_conditions:
+                conditions.append(negate_conditions(not_sub_conditions))
 
         return conditions
 
@@ -526,6 +609,34 @@ class RevokeRoleInput:
         )
 
 
+@strawberry.input(
+    name="BulkAssignRoleInput",
+    description="Added in 26.3.0. Input for bulk assigning a role to multiple users",
+)
+class BulkAssignRoleInputGQL:
+    role_id: uuid.UUID
+    user_ids: list[uuid.UUID]
+
+    def to_bulk_creator(self) -> BulkCreator[UserRoleRow]:
+        specs = [UserRoleCreatorSpec(user_id=uid, role_id=self.role_id) for uid in self.user_ids]
+        return BulkCreator(specs=specs)
+
+
+@strawberry.input(
+    name="BulkRevokeRoleInput",
+    description="Added in 26.3.0. Input for bulk revoking a role from multiple users",
+)
+class BulkRevokeRoleInputGQL:
+    role_id: uuid.UUID
+    user_ids: list[uuid.UUID]
+
+    def to_input(self) -> BulkUserRoleRevocationInput:
+        return BulkUserRoleRevocationInput(
+            role_id=self.role_id,
+            user_ids=self.user_ids,
+        )
+
+
 @strawberry.input(description="Added in 26.3.0. Input for soft-deleting a role")
 class DeleteRoleInput:
     id: uuid.UUID
@@ -547,6 +658,50 @@ class DeleteRolePayload:
 @strawberry.type(description="Added in 26.3.0. Payload for purge role mutation")
 class PurgeRolePayload:
     id: ID
+
+
+@strawberry.type(
+    name="BulkAssignRoleError",
+    description="Added in 26.3.0. Error information for a failed user in bulk role assignment.",
+)
+class BulkAssignRoleErrorGQL:
+    user_id: uuid.UUID = strawberry.field(description="UUID of the user that failed.")
+    message: str = strawberry.field(description="Error message describing the failure.")
+
+
+@strawberry.type(
+    name="BulkAssignRolePayload",
+    description="Added in 26.3.0. Payload for bulk role assignment mutation.",
+)
+class BulkAssignRolePayloadGQL:
+    assigned: list[RoleAssignmentGQL] = strawberry.field(
+        description="List of successfully created role assignments."
+    )
+    failed: list[BulkAssignRoleErrorGQL] = strawberry.field(
+        description="List of errors for users that failed to be assigned."
+    )
+
+
+@strawberry.type(
+    name="BulkRevokeRoleError",
+    description="Added in 26.3.0. Error information for a failed user in bulk role revocation.",
+)
+class BulkRevokeRoleErrorGQL:
+    user_id: uuid.UUID = strawberry.field(description="UUID of the user that failed.")
+    message: str = strawberry.field(description="Error message describing the failure.")
+
+
+@strawberry.type(
+    name="BulkRevokeRolePayload",
+    description="Added in 26.3.0. Payload for bulk role revocation mutation.",
+)
+class BulkRevokeRolePayloadGQL:
+    revoked: list[RoleAssignmentGQL] = strawberry.field(
+        description="List of successfully revoked role assignments."
+    )
+    failed: list[BulkRevokeRoleErrorGQL] = strawberry.field(
+        description="List of errors for users that failed to be revoked."
+    )
 
 
 # ==================== Connection Types ====================

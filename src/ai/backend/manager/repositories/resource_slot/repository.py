@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from ai.backend.common.metrics.metric import DomainType, LayerType
@@ -15,6 +16,7 @@ from ai.backend.common.resilience import (
 )
 from ai.backend.common.resilience.policies.retry import BackoffStrategy
 from ai.backend.manager.data.resource_slot.types import (
+    AgentResourceDrift,
     AgentResourceSearchResult,
     ResourceAllocationSearchResult,
     ResourceOccupancy,
@@ -90,6 +92,11 @@ class ResourceSlotRepository:
         return await self._db_source.get_agent_resources(agent_id)
 
     @resource_slot_repository_resilience.apply()
+    async def get_agent_resource_by_slot(self, agent_id: str, slot_name: str) -> AgentResourceRow:
+        """Get a single slot row for one agent+slot combination."""
+        return await self._db_source.get_agent_resource_by_slot(agent_id, slot_name)
+
+    @resource_slot_repository_resilience.apply()
     async def search_agent_resources(self, querier: BatchQuerier) -> AgentResourceSearchResult:
         return await self._db_source.search_agent_resources(querier)
 
@@ -101,12 +108,31 @@ class ResourceSlotRepository:
         return await self._db_source.get_kernel_allocations(kernel_id)
 
     @resource_slot_repository_resilience.apply()
+    async def get_kernel_allocation_by_slot(
+        self, kernel_id: uuid.UUID, slot_name: str
+    ) -> ResourceAllocationRow:
+        """Get a single allocation row for one kernel+slot combination."""
+        return await self._db_source.get_kernel_allocation_by_slot(kernel_id, slot_name)
+
+    @resource_slot_repository_resilience.apply()
     async def search_resource_allocations(
         self, querier: BatchQuerier
     ) -> ResourceAllocationSearchResult:
         return await self._db_source.search_resource_allocations(querier)
 
     # ==================== Aggregation ====================
+
+    @resource_slot_repository_resilience.apply()
+    async def compute_actual_agent_resource_usage(
+        self,
+    ) -> dict[tuple[str, str], Decimal]:
+        """Compute actual per-agent per-slot resource usage from active allocations."""
+        return await self._db_source.compute_actual_agent_resource_usage()
+
+    @resource_slot_repository_resilience.apply()
+    async def reconcile_agent_resources(self) -> list[AgentResourceDrift]:
+        """Compare agent_resources.used against actual allocations and correct drift."""
+        return await self._db_source.reconcile_agent_resources()
 
     @resource_slot_repository_resilience.apply()
     async def get_domain_resource_overview(self, domain_name: str) -> ResourceOccupancy:
