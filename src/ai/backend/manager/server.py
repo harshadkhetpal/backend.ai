@@ -582,7 +582,9 @@ async def webapp_plugin_ctx(root_app: web.Application) -> AsyncIterator[None]:
         allowlist=root_ctx.config_provider.config.manager.allowed_plugins,
         blocklist=root_ctx.config_provider.config.manager.disabled_plugins,
     )
-    root_ctx.webapp_plugin_ctx = plugin_ctx
+    cors_options = r.system.cors_options
+    root_app["_db"] = r.infrastructure.db
+    root_app["_config_provider"] = r.bootstrap.config_provider
     for plugin_name, plugin_instance in plugin_ctx.plugins.items():
         if root_ctx.pidx == 0:
             log.info("Loading webapp plugin: {0}", plugin_name)
