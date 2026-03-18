@@ -654,6 +654,7 @@ class ModeMenu(Static):
         pkg_type_menu._dist_info = self._dist_info
         pkg_type_menu._install_variable = self.install_variable
         switcher.current = "pkg-type-menu"
+        self.app.query_one("#pkg-type-list", ListView).focus()
 
     @on(ListView.Selected, "#mode-list", item="#mode-maintain")
     def start_maintain_mode(self) -> None:
