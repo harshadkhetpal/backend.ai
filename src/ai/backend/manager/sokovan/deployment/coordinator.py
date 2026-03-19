@@ -61,7 +61,6 @@ from .executor import DeploymentExecutor
 from .handlers import (
     CheckPendingDeploymentHandler,
     CheckReplicaDeploymentHandler,
-    DeployingProgressingHandler,
     DeployingProvisioningHandler,
     DeployingRollingBackHandler,
     DeploymentHandler,
@@ -326,20 +325,10 @@ class DeploymentCoordinator:
                 ),
             ),
             (
-                (DeploymentLifecycleType.DEPLOYING, DeploymentSubStep.PROGRESSING),
-                DeployingProgressingHandler(
-                    deployment_controller=self._deployment_controller,
-                    route_controller=self._route_controller,
-                    evaluator=evaluator,
-                    applier=applier,
-                ),
-            ),
-            (
                 (DeploymentLifecycleType.DEPLOYING, DeploymentSubStep.ROLLING_BACK),
                 DeployingRollingBackHandler(
                     deployment_controller=self._deployment_controller,
                     route_controller=self._route_controller,
-                    evaluator=evaluator,
                     applier=applier,
                 ),
             ),
@@ -437,12 +426,27 @@ class DeploymentCoordinator:
 
         transitions = handler.status_transitions()
 
-        # Success transitions (None = stay in current state)
-        if transitions.success is not None and result.successes:
+        # Success transitions
+        if result.successes and transitions.success is not None:
             transition = self._build_success_transition(
                 handler_name=handler_name,
                 deployments=result.successes,
                 lifecycle_status=transitions.success,
+                target_lifecycles=target_statuses,
+                records=records,
+                timestamp_now=timestamp_now,
+            )
+            batch_updaters.append(transition.updater)
+            all_history_specs.extend(transition.history_specs)
+            notification_events.extend(transition.notification_events)
+
+        # Explicit need_retry from handlers (e.g. route mutations in progress).
+        # These are never escalated to give_up — they represent normal progress.
+        if result.need_retry and transitions.need_retry is not None:
+            transition = self._build_success_transition(
+                handler_name=handler_name,
+                deployments=result.need_retry,
+                lifecycle_status=transitions.need_retry,
                 target_lifecycles=target_statuses,
                 records=records,
                 timestamp_now=timestamp_now,

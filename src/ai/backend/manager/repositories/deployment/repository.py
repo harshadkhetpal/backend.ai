@@ -1406,26 +1406,33 @@ class DeploymentRepository:
         """
         return await self._db_source.search_deployment_policies(querier)
 
+    @deployment_repository_resilience.apply()
     async def apply_strategy_mutations(
         self,
-        assignments: Mapping[UUID, DeploymentSubStep],
         rollout: Sequence[RBACEntityCreator[RoutingRow]],
         drain: BatchUpdater[RoutingRow] | None,
         completed_ids: set[UUID],
-        rolled_back_ids: set[UUID],
     ) -> int:
-        """Apply all DB mutations from a strategy evaluation cycle.
+        """Apply route mutations from a strategy evaluation cycle.
 
-        Performs sub-step updates, route rollout/drain, revision swap,
-        and deploying_revision cleanup in a single transaction.
+        Performs route rollout/drain and revision swap in a single transaction.
+        Sub-step transitions are handled by the coordinator via
+        ``EndpointLifecycleBatchUpdaterSpec``.
 
         Returns:
             Number of deployments whose revision was swapped.
         """
         return await self._db_source.apply_strategy_mutations(
-            assignments=assignments,
             rollout=rollout,
             drain=drain,
             completed_ids=completed_ids,
-            rolled_back_ids=rolled_back_ids,
         )
+
+    @deployment_repository_resilience.apply()
+    async def clear_deploying_revision(self, deployment_ids: set[UUID]) -> None:
+        """Clear deploying_revision and sub_step for rolled-back deployments.
+
+        Called explicitly by ``DeployingRollingBackHandler`` after rollback
+        completes — NOT automatically during strategy mutations.
+        """
+        await self._db_source.clear_deploying_revision(deployment_ids)
