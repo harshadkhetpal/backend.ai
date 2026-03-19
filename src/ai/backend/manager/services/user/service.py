@@ -16,6 +16,7 @@ from ai.backend.manager.data.user.types import (
 from ai.backend.manager.errors.user import UserPurgeFailure
 from ai.backend.manager.models.storage import StorageSessionManager
 from ai.backend.manager.registry import AgentRegistry
+from ai.backend.manager.repositories.keypair.repository import KeyPairRepository
 from ai.backend.manager.repositories.user.repository import UserRepository
 from ai.backend.manager.services.user.actions.admin_month_stats import (
     AdminMonthStatsAction,
@@ -57,6 +58,10 @@ from ai.backend.manager.services.user.actions.purge_user import (
     PurgeUserAction,
     PurgeUserActionResult,
 )
+from ai.backend.manager.services.user.actions.search_my_keypairs import (
+    SearchMyKeypairsAction,
+    SearchMyKeypairsActionResult,
+)
 from ai.backend.manager.services.user.actions.search_users import (
     SearchUsersAction,
     SearchUsersActionResult,
@@ -93,6 +98,7 @@ class UserService:
     _valkey_stat_client: ValkeyStatClient
     _agent_registry: AgentRegistry
     _user_repository: UserRepository
+    _keypair_repository: KeyPairRepository
 
     def __init__(
         self,
@@ -100,11 +106,13 @@ class UserService:
         valkey_stat_client: ValkeyStatClient,
         agent_registry: AgentRegistry,
         user_repository: UserRepository,
+        keypair_repository: KeyPairRepository,
     ) -> None:
         self._storage_manager = storage_manager
         self._valkey_stat_client = valkey_stat_client
         self._user_repository = user_repository
         self._agent_registry = agent_registry
+        self._keypair_repository = keypair_repository
 
     async def create_user(self, action: CreateUserAction) -> CreateUserActionResult:
         user_data_result = await self._user_repository.create_user_validated(
@@ -416,3 +424,15 @@ class UserService:
             user_uuid=action.user_uuid, access_key=action.access_key
         )
         return SwitchMyMainAccessKeyActionResult(success=True)
+
+    async def search_my_keypairs(
+        self, action: SearchMyKeypairsAction
+    ) -> SearchMyKeypairsActionResult:
+        """List keypairs of the current authenticated user."""
+        result = await self._keypair_repository.search_my_keypairs(action.user_uuid, action.querier)
+        return SearchMyKeypairsActionResult(
+            keypairs=result.items,
+            total_count=result.total_count,
+            has_next_page=result.has_next_page,
+            has_previous_page=result.has_previous_page,
+        )
