@@ -245,8 +245,8 @@ async def execute_bulk_purger_partial[TRow: Base](
     for index, purger in enumerate(purgers):
         # Use nested transaction (savepoint) to isolate each row deletion
         # If this row fails, only this savepoint is rolled back, not the entire session
-        async with db_sess.begin_nested():
-            try:
+        try:
+            async with db_sess.begin_nested():
                 row_class = purger.row_class
                 table = row_class.__table__
                 pk_columns = list(table.primary_key.columns)
@@ -269,27 +269,27 @@ async def execute_bulk_purger_partial[TRow: Base](
                 if row_data is not None:
                     deleted_row: TRow = row_class(**dict(row_data._mapping))
                     successes.append(deleted_row)
-            except sa.exc.IntegrityError as e:
-                # The nested transaction automatically rolls back on exception
-                # This only affects the current row, not previous successful ones
-                parsed = parse_integrity_error(e)
-                errors.append(
-                    BulkPurgerError(
-                        purger=purger,
-                        exception=parsed,
-                        index=index,
-                    )
+        except sa.exc.IntegrityError as e:
+            # The nested transaction automatically rolls back on exception
+            # This only affects the current row, not previous successful ones
+            parsed = parse_integrity_error(e)
+            errors.append(
+                BulkPurgerError(
+                    purger=purger,
+                    exception=parsed,
+                    index=index,
                 )
-            except Exception as e:
-                # The nested transaction automatically rolls back on exception
-                # This only affects the current row, not previous successful ones
-                errors.append(
-                    BulkPurgerError(
-                        purger=purger,
-                        exception=e,
-                        index=index,
-                    )
+            )
+        except Exception as e:
+            # The nested transaction automatically rolls back on exception
+            # This only affects the current row, not previous successful ones
+            errors.append(
+                BulkPurgerError(
+                    purger=purger,
+                    exception=e,
+                    index=index,
                 )
+            )
 
     return BulkPurgerResultWithFailures(successes=successes, errors=errors)
 
