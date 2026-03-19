@@ -1,5 +1,6 @@
 """Keypair GraphQL types package."""
 
+from .filters import KeyPairFilterGQL, KeyPairOrderByGQL, KeyPairOrderFieldGQL
 from .inputs import RevokeMyKeypairInputGQL, SwitchMyMainAccessKeyInputGQL, UpdateMyKeypairInputGQL
 from .payloads import (
     IssueMyKeypairPayloadGQL,
@@ -9,6 +10,9 @@ from .payloads import (
 )
 
 __all__ = [
+    "KeyPairFilterGQL",
+    "KeyPairOrderByGQL",
+    "KeyPairOrderFieldGQL",
     "RevokeMyKeypairInputGQL",
     "SwitchMyMainAccessKeyInputGQL",
     "UpdateMyKeypairInputGQL",
