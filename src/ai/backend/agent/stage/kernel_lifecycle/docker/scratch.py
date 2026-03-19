@@ -11,7 +11,12 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from typing import override
 
-from ai.backend.agent.errors.kernel import MkfsError, ScratchFileCreationError, ScratchMountError
+from ai.backend.agent.errors.kernel import (
+    MkfsError,
+    ScratchFileCreationError,
+    ScratchMountError,
+    ScratchUmountError,
+)
 from ai.backend.common.docker import KernelFeatures
 from ai.backend.common.stage.types import (
     ArgsSpecGenerator,
@@ -310,7 +315,7 @@ class ScratchProvisioner(Provisioner[ScratchSpec, ScratchResult]):
         umount = await asyncio.create_subprocess_exec("umount", str(scratch_dir))
         exit_code = await umount.wait()
         if exit_code != 0:
-            raise RuntimeError("umount failed")
+            raise ScratchUmountError
         await loop.run_in_executor(None, scratch_file.unlink)
         await loop.run_in_executor(None, shutil.rmtree, str(scratch_dir))
 
