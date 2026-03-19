@@ -55,6 +55,7 @@ from ai.backend.manager.data.deployment.types import (
     DeploymentWithHistory,
     ModelDeploymentAutoScalingRuleData,
     ModelRevisionData,
+    ModelRevisionSpec,
     RevisionSearchResult,
     RouteInfo,
     RouteSearchResult,
@@ -1123,6 +1124,17 @@ class DeploymentRepository:
             DeploymentRevisionNotFound: If the endpoint has no current revision.
         """
         return await self._db_source.get_current_revision(endpoint_id)
+
+    @deployment_repository_resilience.apply()
+    async def get_revision_spec_from_endpoint(
+        self,
+        endpoint_id: uuid.UUID,
+    ) -> ModelRevisionSpec:
+        """Get a ModelRevisionSpec built from endpoint-level fields.
+
+        Used when no deployment_revisions record exists yet.
+        """
+        return await self._db_source.get_revision_spec_from_endpoint(endpoint_id)
 
     @deployment_repository_resilience.apply()
     async def search_revisions(

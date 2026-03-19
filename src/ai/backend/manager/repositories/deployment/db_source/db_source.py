@@ -53,6 +53,7 @@ from ai.backend.manager.data.deployment.types import (
     ModelDeploymentAccessTokenData,
     ModelDeploymentAutoScalingRuleData,
     ModelRevisionData,
+    ModelRevisionSpec,
     RevisionSearchResult,
     RouteInfo,
     RouteSearchResult,
@@ -2187,6 +2188,27 @@ class DeploymentDBSource:
                     f"Deployment revision {current_revision_id} not found"
                 )
             return row.to_data()
+
+    async def get_revision_spec_from_endpoint(
+        self,
+        endpoint_id: uuid.UUID,
+    ) -> ModelRevisionSpec:
+        """Build a ModelRevisionSpec from the endpoint-level fields.
+
+        Used when no deployment_revisions record exists yet (e.g., newly
+        created deployments before any revision is explicitly added/activated).
+        """
+        async with self._db.begin_readonly_session() as db_sess:
+            query = (
+                sa.select(EndpointRow)
+                .where(EndpointRow.id == endpoint_id)
+                .options(selectinload(EndpointRow.image_row))
+            )
+            result = await db_sess.execute(query)
+            endpoint = result.scalar_one_or_none()
+            if endpoint is None:
+                raise EndpointNotFound(f"Endpoint {endpoint_id} not found")
+            return endpoint.build_revision_spec_from_endpoint()
 
     async def search_revisions(
         self,
