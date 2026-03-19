@@ -983,6 +983,7 @@ class DeploymentDBSource:
                     status=row.status,
                     traffic_ratio=row.traffic_ratio,
                     created_at=row.created_at,
+                    revision_id=row.revision,
                     error_data=row.error_data or {},
                 )
                 for row in rows
@@ -1556,6 +1557,7 @@ class DeploymentDBSource:
                     status=row.status,
                     traffic_ratio=row.traffic_ratio,
                     created_at=row.created_at,
+                    revision_id=row.revision,
                     error_data=row.error_data or {},
                 )
                 route_data_list.append(route_data)
@@ -1787,11 +1789,13 @@ class DeploymentDBSource:
     async def fetch_deployment_context(
         self,
         deployment_info: DeploymentInfo,
+        revision_id: uuid.UUID,
     ) -> DeploymentContext:
         """Fetch all context data needed for session creation from deployment info.
 
         Args:
             deployment_info: Deployment information
+            revision_id: Revision to use for image resolution.
 
         Returns:
             DeploymentContext: Context data needed for session creation
@@ -1842,15 +1846,22 @@ class DeploymentDBSource:
                 else None,
             )
 
-            # Resolve image
-            target_revision = deployment_info.target_revision()
-            if not target_revision:
-                raise DeploymentHasNoTargetRevision("Deployment has no target revision")
-
-            image_row = await ImageRow.resolve(
-                db_sess,
-                [target_revision.image_identifier],
+            revision_query = (
+                sa.select(DeploymentRevisionRow)
+                .where(DeploymentRevisionRow.id == revision_id)
+                .options(selectinload(DeploymentRevisionRow.image_row))
             )
+            revision_result = await db_sess.execute(revision_query)
+            revision_row = revision_result.scalar_one_or_none()
+            if revision_row is None or revision_row.image_row is None:
+                raise DeploymentHasNoTargetRevision(
+                    f"Revision {revision_id} not found or has no image"
+                )
+            image_identifier = ImageIdentifier(
+                canonical=revision_row.image_row.name,
+                architecture=revision_row.image_row.architecture,
+            )
+            image_row = await ImageRow.resolve(db_sess, [image_identifier])
 
             # Build DeploymentContext
             return DeploymentContext(

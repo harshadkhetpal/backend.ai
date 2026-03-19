@@ -129,11 +129,18 @@ class DeploymentExecutor:
         valid_deployments: list[DeploymentWithHistory] = []
         for deployment in deployments:
             info = deployment.deployment_info
-            target_revision = info.target_revision()
-            if not target_revision:
+            if info.current_revision_id is None:
                 log.warning(
-                    "Deployment {} has no target revision, skipping",
+                    "Deployment {} has no current revision, skipping",
                     info.id,
+                )
+                continue
+            current_revision = info.resolve_revision_spec(info.current_revision_id)
+            if not current_revision:
+                log.warning(
+                    "Deployment {} current revision {} not found in model_revisions, skipping",
+                    info.id,
+                    info.current_revision_id,
                 )
                 continue
             targets = scaling_group_targets[info.metadata.resource_group]
@@ -445,16 +452,20 @@ class DeploymentExecutor:
 
         with recorder.phase("register_endpoint"):
             with recorder.step("check_target_revision"):
-                target_revision = deployment.target_revision()
-                if not target_revision:
+                if deployment.current_revision_id is None:
                     raise ModelDefinitionNotFound(
-                        f"No target revision for deployment {deployment.id}"
+                        f"No current revision for deployment {deployment.id}"
+                    )
+                current_revision = deployment.resolve_revision_spec(deployment.current_revision_id)
+                if not current_revision:
+                    raise ModelDefinitionNotFound(
+                        f"Current revision {deployment.current_revision_id} not found for deployment {deployment.id}"
                     )
 
             with recorder.step("generate_model_definition"):
                 model_definition = (
                     await self._model_definition_generator_registry.generate_model_definition(
-                        target_revision
+                        current_revision
                     )
                 )
                 health_check_config = model_definition.health_check_config()
@@ -471,7 +482,7 @@ class DeploymentExecutor:
                     session_owner_id=deployment.metadata.session_owner,
                     project_id=deployment.metadata.project,
                     domain_name=deployment.metadata.domain,
-                    runtime_variant=target_revision.execution.runtime_variant,
+                    runtime_variant=current_revision.execution.runtime_variant,
                     existing_url=deployment.network.url,
                     open_to_public=deployment.network.open_to_public,
                     health_check_config=health_check_config,
