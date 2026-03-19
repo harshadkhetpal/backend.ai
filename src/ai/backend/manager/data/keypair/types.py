@@ -21,6 +21,17 @@ class GeneratedKeyPairData:
     ssh_private_key: str
 
 
+@dataclass(frozen=True)
+class MyKeypairData:
+    access_key: AccessKey
+    is_active: bool
+    is_admin: bool
+    created_at: datetime | None
+    last_used: datetime | None
+    resource_policy: str
+    rate_limit: int
+
+
 @dataclass
 class KeyPairData:
     user_id: uuid.UUID
