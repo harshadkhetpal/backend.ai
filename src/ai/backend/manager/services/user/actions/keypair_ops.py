@@ -17,7 +17,6 @@ class IssueMyKeypairAction(UserAction):
     """Issue a new keypair for the current user."""
 
     user_uuid: UUID
-    email: str
 
     @override
     def entity_id(self) -> str | None:
@@ -43,7 +42,6 @@ class RevokeMyKeypairAction(UserAction):
     """Revoke a keypair owned by the current user."""
 
     user_uuid: UUID
-    email: str
     access_key: str
 
     @override
@@ -66,11 +64,37 @@ class RevokeMyKeypairActionResult(BaseActionResult):
 
 
 @dataclass
+class UpdateMyKeypairAction(UserAction):
+    """Update a keypair owned by the current user (e.g. toggle active state)."""
+
+    user_uuid: UUID
+    access_key: str
+    is_active: bool
+
+    @override
+    def entity_id(self) -> str | None:
+        return self.access_key
+
+    @override
+    @classmethod
+    def operation_type(cls) -> ActionOperationType:
+        return ActionOperationType.UPDATE
+
+
+@dataclass
+class UpdateMyKeypairActionResult(BaseActionResult):
+    success: bool
+
+    @override
+    def entity_id(self) -> str | None:
+        return None
+
+
+@dataclass
 class SwitchMyMainAccessKeyAction(UserAction):
     """Switch the main access key for the current user."""
 
     user_uuid: UUID
-    email: str
     access_key: str
 
     @override
