@@ -1108,15 +1108,11 @@ class TestBulkPurgerPartial:
             assert isinstance(error.exception, RepositoryIntegrityError)
 
             # Verify database state: parent-2 still exists, parent-1 and parent-3 deleted
-            count_result = await db_sess.execute(
-                sa.select(sa.func.count()).select_from(parent_cls)
-            )
+            count_result = await db_sess.execute(sa.select(sa.func.count()).select_from(parent_cls))
             assert count_result.scalar() == 1
 
             # Verify parent-2 still exists
-            parent_2_result = await db_sess.execute(
-                sa.select(parent_cls).where(parent_cls.id == 2)
-            )
+            parent_2_result = await db_sess.execute(sa.select(parent_cls).where(parent_cls.id == 2))
             parent_2 = parent_2_result.scalar_one_or_none()
             assert parent_2 is not None
             assert parent_2.name == "parent-2"
