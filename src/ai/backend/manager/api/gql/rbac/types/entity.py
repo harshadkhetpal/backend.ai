@@ -168,6 +168,8 @@ class EntityRefGQL(Node):
                 | RBACElementType.DEPLOYMENT_TOKEN
                 | RBACElementType.DEPLOYMENT_POLICY
                 | RBACElementType.DEPLOYMENT_REVISION
+                | RBACElementType.PROJECT_ADMIN_PAGE
+                | RBACElementType.DOMAIN_ADMIN_PAGE
             ):
                 return None
 

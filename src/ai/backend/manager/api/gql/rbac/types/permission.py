@@ -81,6 +81,10 @@ class RBACElementTypeGQL(StrEnum):
     AUDIT_LOG = "audit_log"
     EVENT_LOG = "event_log"
 
+    # Admin page access control
+    PROJECT_ADMIN_PAGE = "project_admin_page"
+    DOMAIN_ADMIN_PAGE = "domain_admin_page"
+
     # Auto-only entities used in permissions
     NOTIFICATION_RULE = "notification_rule"
 
@@ -268,6 +272,8 @@ class PermissionGQL(Node):
                 | RBACElementType.DEPLOYMENT_TOKEN
                 | RBACElementType.DEPLOYMENT_POLICY
                 | RBACElementType.DEPLOYMENT_REVISION
+                | RBACElementType.PROJECT_ADMIN_PAGE
+                | RBACElementType.DOMAIN_ADMIN_PAGE
             ):
                 return None
 
