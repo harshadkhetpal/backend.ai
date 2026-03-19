@@ -304,16 +304,12 @@ class PermissionFilter(GQLFilter):
 
         if self.scope_type is not None:
             conditions.append(
-                ScopedPermissionConditions.by_scope_type(
-                    self.scope_type.to_element().to_scope_type()
-                )
+                ScopedPermissionConditions.by_scope_type(self.scope_type.to_element())
             )
 
         if self.entity_type is not None:
             conditions.append(
-                ScopedPermissionConditions.by_entity_type(
-                    self.entity_type.to_element().to_entity_type()
-                )
+                ScopedPermissionConditions.by_entity_type(self.entity_type.to_element())
             )
 
         # Handle AND logical operator
@@ -373,9 +369,9 @@ class CreatePermissionInput:
         return Creator(
             spec=PermissionCreatorSpec(
                 role_id=self.role_id,
-                scope_type=self.scope_type.to_element().to_scope_type(),
+                scope_type=self.scope_type.to_element(),
                 scope_id=self.scope_id,
-                entity_type=self.entity_type.to_element().to_entity_type(),
+                entity_type=self.entity_type.to_element(),
                 operation=self.operation.to_internal(),
             )
         )
@@ -392,7 +388,7 @@ class UpdatePermissionInput:
     def to_updater(self) -> Updater[PermissionRow]:
         spec = PermissionUpdaterSpec(
             scope_type=(
-                OptionalState.update(self.scope_type.to_element().to_scope_type())
+                OptionalState.update(self.scope_type.to_element())
                 if self.scope_type is not None
                 else OptionalState.nop()
             ),
@@ -402,7 +398,7 @@ class UpdatePermissionInput:
                 else OptionalState.nop()
             ),
             entity_type=(
-                OptionalState.update(self.entity_type.to_element().to_entity_type())
+                OptionalState.update(self.entity_type.to_element())
                 if self.entity_type is not None
                 else OptionalState.nop()
             ),
