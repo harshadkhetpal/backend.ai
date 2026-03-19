@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
@@ -44,6 +44,49 @@ class PurgerResult[TRow: Base]:
     """Result of executing a single-row delete operation."""
 
     row: TRow
+
+
+@dataclass
+class BulkPurgerError[TRow: Base]:
+    """Error information for a failed bulk purge operation.
+
+    Contains the purger that failed and the exception for debugging.
+    Follows the BulkCreatorError pattern.
+
+    Attributes:
+        purger: The Purger that failed
+        exception: The exception that occurred
+        index: Original position in purger list for traceability
+    """
+
+    purger: Purger[TRow]
+    exception: Exception
+    index: int
+
+
+@dataclass
+class BulkPurgerResultWithFailures[TRow: Base]:
+    """Result of bulk purge operation supporting partial failures.
+
+    Follows the BulkCreatorResultWithFailures pattern with successes and errors.
+    Unlike batch purger which fails atomically, this allows some rows
+    to succeed while others fail.
+
+    Attributes:
+        successes: Successfully deleted rows
+        errors: Failed purgers with error information
+    """
+
+    successes: list[TRow] = field(default_factory=list)
+    errors: list[BulkPurgerError[TRow]] = field(default_factory=list)
+
+    def success_count(self) -> int:
+        """Get count of successfully deleted rows."""
+        return len(self.successes)
+
+    def has_failures(self) -> bool:
+        """Check if any failures occurred."""
+        return len(self.errors) > 0
 
 
 async def execute_purger[TRow: Base](
