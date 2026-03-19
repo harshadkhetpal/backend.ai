@@ -134,6 +134,7 @@ from .image import (
 from .kernel.resolver import admin_kernels_v2, kernel_v2, session_kernels_v2
 from .keypair import (
     issue_my_keypair,
+    my_keypairs,
     revoke_my_keypair,
     switch_my_main_access_key,
     update_my_keypair,
@@ -394,6 +395,8 @@ class Query:
     session_scheduling_histories = session_scheduling_histories
     deployment_histories = deployment_histories
     route_histories = route_histories
+    # Keypair V2 APIs
+    my_keypairs = my_keypairs
     # User V2 APIs
     admin_user_v2 = admin_user_v2
     admin_users_v2 = admin_users_v2
