@@ -6,11 +6,15 @@ Tests KeyPairFilterGQL, KeyPairOrderByGQL, MyKeypairGQL, MyKeypairConnection.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 
+import pytest
+from aiohttp import web
 from strawberry.relay import PageInfo
 
 from ai.backend.common.types import AccessKey
 from ai.backend.manager.api.gql.base import OrderDirection
+from ai.backend.manager.api.gql.keypair.resolver import query as keypair_query
 from ai.backend.manager.api.gql.keypair.types.filters import (
     KeyPairFilterGQL,
     KeyPairOrderByGQL,
@@ -334,3 +338,33 @@ class TestMyKeypairConnection:
 
         assert len(connection.edges) == 1
         assert connection.count == 100
+
+
+class TestMyKeypairsResolver:
+    """Tests for the my_keypairs GraphQL resolver."""
+
+    async def test_unauthenticated_request_raises_http_unauthorized(self) -> None:
+        """Unauthenticated my_keypairs query → web.HTTPUnauthorized.
+
+        When current_user() returns None (no authenticated session),
+        the resolver must raise web.HTTPUnauthorized before calling the fetcher.
+        """
+        info = MagicMock()
+
+        with patch(
+            "ai.backend.manager.api.gql.keypair.resolver.query.current_user",
+            return_value=None,
+        ):
+            resolver_fn = keypair_query.my_keypairs.base_resolver
+            with pytest.raises(web.HTTPUnauthorized):
+                await resolver_fn(
+                    info,
+                    None,  # filter
+                    None,  # order_by
+                    None,  # before
+                    None,  # after
+                    None,  # first
+                    None,  # last
+                    None,  # limit
+                    None,  # offset
+                )
