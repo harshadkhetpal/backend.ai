@@ -11,6 +11,7 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from typing import override
 
+from ai.backend.agent.errors.kernel import ScratchFileCreationError
 from ai.backend.common.docker import KernelFeatures
 from ai.backend.common.stage.types import (
     ArgsSpecGenerator,
@@ -129,12 +130,14 @@ class ScratchProvisioner(Provisioner[ScratchSpec, ScratchResult]):
 
     def _create_sparse_file(self, name: str, size: int) -> None:
         filepath = Path(name)
-        filepath.touch(mode=0o644, exist_ok=True)
+        if filepath.exists():
+            filepath.unlink()
+        filepath.touch(mode=0o644)
         os.truncate(name, size)
         # Check that no space was allocated
         stat = filepath.stat()
         if stat.st_blocks != 0:
-            raise RuntimeError("could not create sparse file")
+            raise ScratchFileCreationError
 
     async def _create_loop_filesystem(
         self, scratch_root: Path, scratch_size: int, kernel_id: KernelId
