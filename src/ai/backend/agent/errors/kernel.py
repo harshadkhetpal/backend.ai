@@ -97,3 +97,59 @@ class RunIdNotSetError(BackendAIError, web.HTTPInternalServerError):
             operation=ErrorOperation.EXECUTE,
             error_detail=ErrorDetail.NOT_READY,
         )
+
+
+class ScratchFileCreationError(BackendAIError, web.HTTPInternalServerError):
+    """Raised when creation of a sparse scratch file fails."""
+
+    error_type = "https://api.backend.ai/probs/agent/scratch-file-creation-failed"
+    error_title = "Could not create sparse scratch file."
+
+    def error_code(self) -> ErrorCode:
+        return ErrorCode(
+            domain=ErrorDomain.KERNEL,
+            operation=ErrorOperation.SETUP,
+            error_detail=ErrorDetail.UNAVAILABLE,
+        )
+
+
+class MkfsError(BackendAIError, web.HTTPInternalServerError):
+    """Raised when mkfs.ext4 fails on the scratch file."""
+
+    error_type = "https://api.backend.ai/probs/agent/mkfs-failed"
+    error_title = "mkfs.ext4 failed on scratch file."
+
+    def error_code(self) -> ErrorCode:
+        return ErrorCode(
+            domain=ErrorDomain.KERNEL,
+            operation=ErrorOperation.SETUP,
+            error_detail=ErrorDetail.INTERNAL_ERROR,
+        )
+
+
+class ScratchMountError(BackendAIError, web.HTTPInternalServerError):
+    """Raised when mounting the scratch loop filesystem fails."""
+
+    error_type = "https://api.backend.ai/probs/agent/scratch-mount-failed"
+    error_title = "Mounting scratch loop filesystem failed."
+
+    def error_code(self) -> ErrorCode:
+        return ErrorCode(
+            domain=ErrorDomain.KERNEL,
+            operation=ErrorOperation.SETUP,
+            error_detail=ErrorDetail.UNAVAILABLE,
+        )
+
+
+class ScratchUmountError(BackendAIError, web.HTTPInternalServerError):
+    """Raised when unmounting the scratch loop filesystem fails."""
+
+    error_type = "https://api.backend.ai/probs/agent/scratch-umount-failed"
+    error_title = "Unmounting scratch loop filesystem failed."
+
+    def error_code(self) -> ErrorCode:
+        return ErrorCode(
+            domain=ErrorDomain.KERNEL,
+            operation=ErrorOperation.SETUP,
+            error_detail=ErrorDetail.UNAVAILABLE,
+        )

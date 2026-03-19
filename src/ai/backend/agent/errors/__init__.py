@@ -28,9 +28,13 @@ from .agent import (
 from .kernel import (
     AsyncioContextError,
     KernelRunnerNotInitializedError,
+    MkfsError,
     OutputQueueMismatchError,
     OutputQueueNotInitializedError,
     RunIdNotSetError,
+    ScratchFileCreationError,
+    ScratchMountError,
+    ScratchUmountError,
     SubprocessStreamError,
 )
 from .resources import (
@@ -71,9 +75,13 @@ __all__ = [
     # kernel
     "AsyncioContextError",
     "KernelRunnerNotInitializedError",
+    "MkfsError",
     "OutputQueueMismatchError",
     "OutputQueueNotInitializedError",
     "RunIdNotSetError",
+    "ScratchFileCreationError",
+    "ScratchMountError",
+    "ScratchUmountError",
     "SubprocessStreamError",
     # resources
     "AgentIdNotFoundError",
