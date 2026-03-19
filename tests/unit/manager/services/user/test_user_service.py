@@ -123,6 +123,7 @@ def _make_service(mock_repo: MagicMock) -> UserService:
         valkey_stat_client=MagicMock(),
         agent_registry=MagicMock(),
         user_repository=mock_repo,
+        keypair_repository=MagicMock(),
     )
 
 
