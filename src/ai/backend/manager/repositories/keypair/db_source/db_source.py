@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from uuid import UUID
-
 import sqlalchemy as sa
 
 from ai.backend.common.types import AccessKey
@@ -36,16 +34,16 @@ class KeyPairDBSource:
 
     async def search_my_keypairs(
         self,
-        user_uuid: UUID,
         querier: BatchQuerier,
     ) -> KeyPairSearchResult:
-        """Search keypairs belonging to a specific user.
+        """Search keypairs matching the given querier.
+
+        User scoping is enforced by the caller via ``KeyPairConditions.by_user``
+        in ``querier.base_conditions``.
 
         Args:
-            user_uuid: UUID of the user whose keypairs to search. The caller
-                must ensure that ``querier`` already has ``KeyPairConditions.by_user``
-                in its ``base_conditions`` so this method does not double-apply it.
-            querier: BatchQuerier containing conditions, orders, and pagination.
+            querier: BatchQuerier containing base conditions (including user scope),
+                filters, orders, and pagination.
 
         Returns:
             KeyPairSearchResult with matching keypairs and pagination info.
