@@ -2,6 +2,7 @@
 
 from .filters import KeyPairFilterGQL, KeyPairOrderByGQL, KeyPairOrderFieldGQL
 from .inputs import RevokeMyKeypairInputGQL, SwitchMyMainAccessKeyInputGQL, UpdateMyKeypairInputGQL
+from .node import MyKeypairConnection, MyKeypairEdge, MyKeypairGQL
 from .payloads import (
     IssueMyKeypairPayloadGQL,
     RevokeMyKeypairPayloadGQL,
@@ -13,6 +14,9 @@ __all__ = [
     "KeyPairFilterGQL",
     "KeyPairOrderByGQL",
     "KeyPairOrderFieldGQL",
+    "MyKeypairConnection",
+    "MyKeypairEdge",
+    "MyKeypairGQL",
     "RevokeMyKeypairInputGQL",
     "SwitchMyMainAccessKeyInputGQL",
     "UpdateMyKeypairInputGQL",
