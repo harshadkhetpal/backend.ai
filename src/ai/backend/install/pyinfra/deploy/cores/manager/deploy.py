@@ -311,7 +311,7 @@ class ManagerDeploy(BaseSystemdDeploy):
         """
         try:
             if dest_dir is None:
-                dest_dir = self.service_dir
+                dest_dir = str(self.service_dir)
 
             fixtures_context = self._get_fixtures_context()
             for fixture in self.FIXTURE_FILES:

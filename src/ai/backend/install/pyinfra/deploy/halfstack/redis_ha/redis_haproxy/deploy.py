@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pyinfra import host
 from pyinfra.operations import files, server
 
@@ -16,7 +18,9 @@ class RedisHaproxyDeploy(BaseDockerComposeDeploy):
         self.service_dir = f"{self.home_dir}/halfstack/redis_haproxy-{self.config.name}"
         self.conf_dir = f"{self.service_dir}/conf"
 
-    def create_directories(self) -> None:
+    def create_directories(
+        self, dirs: list[Path | str] | None = None, use_sudo: bool = False
+    ) -> None:
         """Override to create both service and config directories"""
         files.directory(path=self.service_dir, present=True)
         files.directory(path=self.conf_dir, present=True)

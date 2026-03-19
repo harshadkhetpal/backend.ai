@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pyinfra import host
 from pyinfra.operations import files, server
 
@@ -37,7 +39,9 @@ class RedisSentinelDeploy(BaseDockerComposeDeploy):
 
         raise ValueError(f"Current host {host.name} not found in Redis HA cluster configuration")
 
-    def create_directories(self) -> None:
+    def create_directories(
+        self, dirs: list[Path | str] | None = None, use_sudo: bool = False
+    ) -> None:
         """Override to create both service and config directories"""
         files.directory(path=self.service_dir, present=True)
         files.directory(path=self.conf_dir, present=True)

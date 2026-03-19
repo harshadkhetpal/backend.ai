@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pyinfra import host
 from pyinfra.operations import files
 
@@ -17,7 +19,9 @@ class EtcdDeploy(BaseDockerComposeDeploy):
         self.service_dir = f"{self.home_dir}/halfstack/etcd-default"
         self.data_dir = f"{self.home_dir}/.data/backend.ai/etcd-data"
 
-    def create_directories(self) -> None:
+    def create_directories(
+        self, dirs: list[Path | str] | None = None, use_sudo: bool = False
+    ) -> None:
         """Override to set proper ownership and permissions for etcd data directory."""
         files.directory(path=self.service_dir, present=True)
         files.directory(

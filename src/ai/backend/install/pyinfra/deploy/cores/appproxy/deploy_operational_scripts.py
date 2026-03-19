@@ -116,7 +116,7 @@ class AppProxyOperationalScriptsDeploy(BaseDeploy):
 
         # Deploy each script
         for script_meta in self.scripts_metadata:
-            context = script_meta["context_builder"]()
+            context = script_meta["context_builder"]()  # type: ignore[operator]
             files.template(
                 name=f"Deploy {script_meta['name']} script",
                 src=self.locate_template(script_meta["template"]),

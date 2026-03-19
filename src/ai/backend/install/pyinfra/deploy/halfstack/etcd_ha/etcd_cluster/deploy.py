@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pyinfra import host
 from pyinfra.operations import files, server
 
@@ -43,7 +45,9 @@ class EtcdClusterDeploy(BaseDockerComposeDeploy):
 
         raise ValueError(f"Current host {host.name} not found in ETCD HA cluster configuration")
 
-    def create_directories(self) -> None:
+    def create_directories(
+        self, dirs: list[Path | str] | None = None, use_sudo: bool = False
+    ) -> None:
         """Override to set proper ownership and permissions for ETCD data directory."""
         files.directory(path=self.service_dir, present=True)
         files.directory(
@@ -72,9 +76,11 @@ class EtcdClusterDeploy(BaseDockerComposeDeploy):
             _sudo=True,
         )
 
-    def remove_directories(self) -> None:
+    def remove_directories(
+        self, dirs: list[Path | str] | None = None, use_sudo: bool = True
+    ) -> None:
         """Override to clean up empty parent directories after removal"""
-        super().remove_directories()
+        super().remove_directories(dirs=dirs, use_sudo=use_sudo)
         self._cleanup_empty_parent_directories()
 
     def create_node_env_file(self) -> None:

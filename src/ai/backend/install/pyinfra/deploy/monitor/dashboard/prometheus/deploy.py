@@ -162,7 +162,7 @@ class PrometheusDeploy(BaseDockerComposeDeploy):
 
     def _get_traefik_targets(self) -> None:
         """Get Traefik metrics targets from appproxy configuration."""
-        targets = []
+        targets: list[str] = []
         appproxy_config = self.host_data.services.get("appproxy")
         if not appproxy_config:
             return targets

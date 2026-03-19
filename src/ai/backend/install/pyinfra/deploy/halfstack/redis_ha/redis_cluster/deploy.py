@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pyinfra import host
 from pyinfra.operations import files, server
 
@@ -43,7 +45,9 @@ class RedisClusterDeploy(BaseDockerComposeDeploy):
 
         raise ValueError(f"Current host {node_name} not found in Redis HA cluster configuration")
 
-    def create_directories(self) -> None:
+    def create_directories(
+        self, dirs: list[Path | str] | None = None, use_sudo: bool = False
+    ) -> None:
         """Override to set specific permissions for Redis data directory"""
         files.directory(path=self.service_dir, present=True)
         files.directory(path=self.data_dir, present=True, mode="777")

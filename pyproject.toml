@@ -333,6 +333,15 @@ module = [
 ]
 disable_error_code = ["union-attr", "misc"]
 
+# PyInfra is an optional dependency for production deployment
+# Skip import checking when pyinfra is not installed
+[[tool.mypy.overrides]]
+module = [
+    "ai.backend.install.pyinfra.*",
+]
+disable_error_code = ["import-not-found", "no-any-return", "attr-defined", "arg-type", "return-value", "type-arg", "func-returns-value"]
+follow_imports = "skip"
+
 # Ignore errors in vendor code, accelerators, and build tools
 # These are external/generated code or low-priority plugins
 [[tool.mypy.overrides]]

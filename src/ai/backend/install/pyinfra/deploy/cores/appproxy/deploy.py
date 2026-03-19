@@ -76,7 +76,7 @@ class AppProxyDeploy(BaseDeploy):
     def deploy_coordinator(self) -> None:
         """Deploy AppProxy coordinator component"""
         module_path = Path(__file__).parent / "coordinator" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("coordinator.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("coordinator.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         if spec is None or spec.loader is None:
@@ -88,7 +88,7 @@ class AppProxyDeploy(BaseDeploy):
     def deploy_worker_interactive(self) -> None:
         """Deploy AppProxy interactive worker component"""
         module_path = Path(__file__).parent / "worker_interactive" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("worker_interactive.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("worker_interactive.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -98,7 +98,7 @@ class AppProxyDeploy(BaseDeploy):
     def deploy_worker_inference(self) -> None:
         """Deploy AppProxy inference worker component"""
         module_path = Path(__file__).parent / "worker_inference" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("worker_inference.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("worker_inference.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -108,7 +108,7 @@ class AppProxyDeploy(BaseDeploy):
     def deploy_worker_tcp(self) -> None:
         """Deploy AppProxy TCP worker component"""
         module_path = Path(__file__).parent / "worker_tcp" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("worker_tcp.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("worker_tcp.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -118,7 +118,7 @@ class AppProxyDeploy(BaseDeploy):
     def deploy_traefik(self) -> None:
         """Deploy AppProxy Traefik component for all worker types"""
         module_path = Path(__file__).parent / "traefik" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("traefik.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("traefik.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -128,7 +128,7 @@ class AppProxyDeploy(BaseDeploy):
     def deploy_traefik_for_worker(self, worker_type: str) -> None:
         """Deploy AppProxy Traefik component for a specific worker type"""
         module_path = Path(__file__).parent / "traefik" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("traefik.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("traefik.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -138,7 +138,7 @@ class AppProxyDeploy(BaseDeploy):
     def remove_coordinator(self) -> None:
         """Remove AppProxy coordinator component"""
         module_path = Path(__file__).parent / "coordinator" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("coordinator.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("coordinator.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -148,7 +148,7 @@ class AppProxyDeploy(BaseDeploy):
     def remove_worker_interactive(self) -> None:
         """Remove AppProxy interactive worker component"""
         module_path = Path(__file__).parent / "worker_interactive" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("worker_interactive.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("worker_interactive.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -158,7 +158,7 @@ class AppProxyDeploy(BaseDeploy):
     def remove_worker_inference(self) -> None:
         """Remove AppProxy inference worker component"""
         module_path = Path(__file__).parent / "worker_inference" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("worker_inference.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("worker_inference.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -168,7 +168,7 @@ class AppProxyDeploy(BaseDeploy):
     def remove_worker_tcp(self) -> None:
         """Remove AppProxy TCP worker component"""
         module_path = Path(__file__).parent / "worker_tcp" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("worker_tcp.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("worker_tcp.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -178,7 +178,7 @@ class AppProxyDeploy(BaseDeploy):
     def remove_traefik(self) -> None:
         """Remove AppProxy Traefik component for all worker types"""
         module_path = Path(__file__).parent / "traefik" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("traefik.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("traefik.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -188,7 +188,7 @@ class AppProxyDeploy(BaseDeploy):
     def remove_traefik_for_worker(self, worker_type: str) -> None:
         """Remove AppProxy Traefik component for a specific worker type"""
         module_path = Path(__file__).parent / "traefik" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("traefik.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("traefik.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -231,7 +231,7 @@ class AppProxyDeploy(BaseDeploy):
     def update_coordinator(self) -> None:
         """Update AppProxy coordinator component"""
         module_path = Path(__file__).parent / "coordinator" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("coordinator.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("coordinator.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -241,7 +241,7 @@ class AppProxyDeploy(BaseDeploy):
     def update_worker_interactive(self) -> None:
         """Update AppProxy interactive worker component"""
         module_path = Path(__file__).parent / "worker_interactive" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("worker_interactive.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("worker_interactive.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -251,7 +251,7 @@ class AppProxyDeploy(BaseDeploy):
     def update_worker_inference(self) -> None:
         """Update AppProxy inference worker component"""
         module_path = Path(__file__).parent / "worker_inference" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("worker_inference.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("worker_inference.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)
@@ -261,7 +261,7 @@ class AppProxyDeploy(BaseDeploy):
     def update_worker_tcp(self) -> None:
         """Update AppProxy TCP worker component"""
         module_path = Path(__file__).parent / "worker_tcp" / "deploy.py"
-        spec = importlib.util.spec_from_file_location("worker_tcp.deploy", module_path)  # type: ignore[misc]
+        spec = importlib.util.spec_from_file_location("worker_tcp.deploy", module_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)

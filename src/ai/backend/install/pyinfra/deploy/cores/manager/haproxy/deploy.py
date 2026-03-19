@@ -89,7 +89,9 @@ class ManagerHAProxyDeploy(BaseDockerComposeDeploy):
         # Get manager nodes once to avoid duplicate calls
         manager_nodes = self._get_manager_cluster_nodes()
 
-        self.create_directories(dirs=[self.service_dir, f"{self.home_dir}/{self.SSL_CERT_DIR}"])
+        self.create_directories(
+            dirs=[Path(self.service_dir), Path(f"{self.home_dir}/{self.SSL_CERT_DIR}")]
+        )
         self.create_docker_compose_yaml(
             home_dir=self.home_dir,
             service_ip=self.service_ip,
