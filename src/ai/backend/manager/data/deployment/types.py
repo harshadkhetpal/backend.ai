@@ -322,6 +322,7 @@ class ExecutionSpec(ConfiguredModel):
 
 
 class ModelRevisionSpec(ConfiguredModel):
+    revision_id: UUID | None = None
     image_identifier: ImageIdentifier
     resource_spec: ResourceSpec
     mounts: MountMetadata
@@ -379,10 +380,12 @@ class DeploymentInfo:
     deploying_revision_id: UUID | None = None
     sub_step: DeploymentSubStep | None = None
 
-    def target_revision(self) -> ModelRevisionSpec | None:
-        if self.model_revisions:
-            return self.model_revisions[0]
-        return None
+    def resolve_revision_spec(self, revision_id: UUID) -> ModelRevisionSpec | None:
+        """Find a ModelRevisionSpec by revision_id from model_revisions."""
+        return next(
+            (r for r in self.model_revisions if r.revision_id == revision_id),
+            None,
+        )
 
 
 @dataclass

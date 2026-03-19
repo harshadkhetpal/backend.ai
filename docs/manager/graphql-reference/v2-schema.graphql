@@ -1415,6 +1415,52 @@ input ContainerRegistryScope {
   registryId: UUID!
 }
 
+"""Added in 26.4.0. Container registry type."""
+enum ContainerRegistryType {
+  DOCKER
+  HARBOR
+  HARBOR2
+  GITHUB
+  GITLAB
+  ECR
+  ECR_PUB
+  LOCAL
+  OCP
+}
+
+"""Added in 26.4.0. Container registry node."""
+type ContainerRegistryV2 implements Node {
+  """The Globally Unique ID of this object"""
+  id: ID!
+
+  """URL of the container registry"""
+  url: String!
+
+  """Name of the container registry"""
+  registryName: String!
+
+  """Type of the container registry"""
+  type: ContainerRegistryType!
+
+  """Project or namespace within the registry"""
+  project: String
+
+  """Username for registry authentication"""
+  username: String
+
+  """Masked password for registry authentication"""
+  password: String
+
+  """Whether SSL verification is enabled"""
+  sslVerify: Boolean
+
+  """Whether this registry is globally accessible"""
+  isGlobal: Boolean
+
+  """Extra metadata for the container registry"""
+  extra: JSON
+}
+
 input CreateAccessTokenInput {
   """
   Added in 25.16.0: The ID of the model deployment for which the access token is created.
@@ -2631,7 +2677,7 @@ input EntityFilter {
   NOT: [EntityFilter!] = null
 }
 
-union EntityNode = UserV2 | ProjectV2 | DomainV2 | VirtualFolderNode | ImageV2 | ComputeSessionNode | Artifact | ArtifactRegistry | AppConfig | NotificationChannel | NotificationRule | ModelDeployment | ResourceGroup | ArtifactRevision | Role
+union EntityNode = UserV2 | ProjectV2 | DomainV2 | VirtualFolderNode | ImageV2 | ComputeSessionNode | Artifact | ArtifactRegistry | AppConfig | NotificationChannel | NotificationRule | ModelDeployment | ResourceGroup | ContainerRegistryV2 | ArtifactRevision | Role
 
 """Added in 26.3.0. Order by specification for entity associations"""
 input EntityOrderBy {
@@ -4348,6 +4394,11 @@ type Mutation {
   switchMyMainAccessKey(input: SwitchMyMainAccessKeyInput!): SwitchMyMainAccessKeyPayload!
 
   """
+  Update a keypair owned by the current user (e.g. toggle active state). The keypair must be owned by the current user.
+  """
+  updateMyKeypair(input: UpdateMyKeypairInput!): UpdateMyKeypairPayload!
+
+  """
   Added in 26.4.0. Update the current user's allowed client IP list. Set allowed_client_ip to null to remove all IP restrictions. When force is false, the operation fails if the current request IP would be excluded by the new allowlist (lockout prevention).
   """
   updateMyAllowedClientIp(input: UpdateMyAllowedClientIPInput!): UpdateMyAllowedClientIPPayload!
@@ -6028,6 +6079,7 @@ enum RBACElementType {
   NOTIFICATION_RULE
   DEPLOYMENT_TOKEN
   DEPLOYMENT_POLICY
+  DEPLOYMENT_REVISION
   ARTIFACT_REVISION
 }
 
@@ -7871,6 +7923,23 @@ input UpdateMyAllowedClientIPInput {
 Added in 26.4.0. Payload for updating the current user's allowed client IP list.
 """
 type UpdateMyAllowedClientIPPayload {
+  """Whether the update was successful."""
+  success: Boolean!
+}
+
+"""Input for updating a keypair owned by the current user."""
+input UpdateMyKeypairInput {
+  """
+  Access key of the keypair to update. Must be owned by the current user.
+  """
+  accessKey: String!
+
+  """Target active state for the keypair."""
+  isActive: Boolean!
+}
+
+"""Payload returned after updating a keypair."""
+type UpdateMyKeypairPayload {
   """Whether the update was successful."""
   success: Boolean!
 }

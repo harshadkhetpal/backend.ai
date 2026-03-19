@@ -87,6 +87,7 @@ class RBACElementTypeGQL(StrEnum):
     # Auto sub-entities with direct GET APIs
     DEPLOYMENT_TOKEN = "deployment:token"
     DEPLOYMENT_POLICY = "deployment:policy"
+    DEPLOYMENT_REVISION = "deployment:revision"
 
     # Entity-level scopes
     ARTIFACT_REVISION = "artifact_revision"
@@ -187,6 +188,7 @@ class PermissionGQL(Node):
         info: Info[StrawberryGQLContext],
     ) -> EntityNode | None:
         from ai.backend.manager.api.gql.artifact.types import ArtifactRevision
+        from ai.backend.manager.api.gql.container_registry.types import ContainerRegistryGQL
         from ai.backend.manager.api.gql.deployment.types.deployment import ModelDeployment
         from ai.backend.manager.api.gql.domain_v2.types.node import DomainV2GQL
         from ai.backend.manager.api.gql.project_v2.types.node import ProjectV2GQL
@@ -234,13 +236,19 @@ class PermissionGQL(Node):
                 if rev_data is None:
                     return None
                 return ArtifactRevision.from_dataclass(rev_data)
+            case RBACElementType.CONTAINER_REGISTRY:
+                cr_data = await data_loaders.container_registry_loader.load(
+                    uuid.UUID(self.scope_id)
+                )
+                if cr_data is None:
+                    return None
+                return ContainerRegistryGQL.from_data(cr_data)
             case (
                 RBACElementType.SESSION
                 | RBACElementType.VFOLDER
                 | RBACElementType.KEYPAIR
                 | RBACElementType.NOTIFICATION_CHANNEL
                 | RBACElementType.NETWORK
-                | RBACElementType.CONTAINER_REGISTRY
                 | RBACElementType.STORAGE_HOST
                 | RBACElementType.IMAGE
                 | RBACElementType.ARTIFACT
@@ -259,6 +267,7 @@ class PermissionGQL(Node):
                 | RBACElementType.ROUTING
                 | RBACElementType.DEPLOYMENT_TOKEN
                 | RBACElementType.DEPLOYMENT_POLICY
+                | RBACElementType.DEPLOYMENT_REVISION
             ):
                 return None
 

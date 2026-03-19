@@ -109,13 +109,17 @@ class SessionCreationSpec:
 
     @classmethod
     def from_deployment_info(
-        cls, deployment_info: DeploymentInfo, context: DeploymentContext, route_id: UUID
+        cls,
+        deployment_info: DeploymentInfo,
+        context: DeploymentContext,
+        route_id: UUID,
+        revision_id: UUID,
     ) -> Self:
         session_creation_id = secrets.token_urlsafe(16)
-        target_revision = deployment_info.target_revision()
+        target_revision = deployment_info.resolve_revision_spec(revision_id)
         if target_revision is None:
             raise DeploymentHasNoTargetRevision(
-                "Deployment has no target revision for session creation"
+                f"Revision {revision_id} not found in model_revisions"
             )
 
         # Prepare mount spec
