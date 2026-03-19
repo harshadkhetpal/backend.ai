@@ -6203,6 +6203,37 @@ type KeyPair implements Item
   concurrency_limit: Int @deprecated(reason: "Moved to KeyPairResourcePolicy object as the max_concurrent_sessions field.")
 }
 
+"""
+Added in 26.x. Filter input for querying keypairs. Supports filtering by active status, admin status, and creation time. Multiple filters can be combined using AND, OR, and NOT logical operators.
+"""
+input KeyPairFilter
+  @join__type(graph: STRAWBERRY)
+{
+  """Filter by keypair active status."""
+  isActive: Boolean = null
+
+  """Filter by keypair admin privilege."""
+  isAdmin: Boolean = null
+
+  """
+  Filter by creation timestamp. Supports before, after, and between operations.
+  """
+  createdAt: DateTimeFilter = null
+
+  """Combine multiple filters with AND logic. All conditions must match."""
+  AND: [KeyPairFilter!] = null
+
+  """
+  Combine multiple filters with OR logic. At least one condition must match.
+  """
+  OR: [KeyPairFilter!] = null
+
+  """
+  Negate the specified filters. Records matching these conditions will be excluded.
+  """
+  NOT: [KeyPairFilter!] = null
+}
+
 input KeyPairInput
   @join__type(graph: GRAPHENE)
 {
@@ -6219,6 +6250,29 @@ type KeyPairList implements PaginatedList
 {
   items: [KeyPair]!
   total_count: Int!
+}
+
+"""
+Added in 26.x. Specifies ordering for keypair query results. Combine field selection with direction to sort results. Default direction is DESC (descending).
+"""
+input KeyPairOrderBy
+  @join__type(graph: STRAWBERRY)
+{
+  """The field to order by. See KeyPairOrderField for available options."""
+  field: KeyPairOrderField!
+
+  """Sort direction. ASC for ascending, DESC for descending."""
+  direction: OrderDirection! = DESC
+}
+
+"""
+Added in 26.x. Fields available for ordering keypair query results. CREATED_AT: Order by creation timestamp. ACCESS_KEY: Order by access key alphabetically.
+"""
+enum KeyPairOrderField
+  @join__type(graph: STRAWBERRY)
+{
+  CREATED_AT @join__enumValue(graph: STRAWBERRY)
+  ACCESS_KEY @join__enumValue(graph: STRAWBERRY)
 }
 
 type KeyPairResourcePolicy
@@ -8088,6 +8142,65 @@ type Mutation
 
   """Added in 26.3.0. Bulk revoke a role from multiple users (admin only)."""
   adminBulkRevokeRole(input: BulkRevokeRoleInput!): BulkRevokeRolePayload! @join__field(graph: STRAWBERRY)
+}
+
+"""
+Added in 26.x. Represents a keypair belonging to the currently authenticated user. Does not expose the secret key — secret keys are only returned at creation time.
+"""
+type MyKeypair implements Node
+  @join__implements(graph: STRAWBERRY, interface: "Node")
+  @join__type(graph: STRAWBERRY)
+{
+  """The Globally Unique ID of this object"""
+  id: ID!
+
+  """The access key identifier."""
+  accessKey: String!
+
+  """Whether this keypair is active."""
+  isActive: Boolean!
+
+  """Whether this keypair has admin privileges."""
+  isAdmin: Boolean!
+
+  """Timestamp when the keypair was created."""
+  createdAt: DateTime
+
+  """Timestamp when the keypair was last used."""
+  lastUsed: DateTime
+
+  """Name of the resource policy attached to this keypair."""
+  resourcePolicy: String!
+
+  """Request rate limit for this keypair (requests per minute)."""
+  rateLimit: Int!
+}
+
+"""
+Added in 26.x. Paginated connection for the current user's keypair records. Provides relay-style cursor-based pagination. Use 'edges' to access individual records with cursor information, or 'nodes' for direct data access.
+"""
+type MyKeypairConnection
+  @join__type(graph: STRAWBERRY)
+{
+  """Pagination data for this connection"""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection"""
+  edges: [MyKeypairEdge!]!
+
+  """Total number of keypair records matching the query criteria."""
+  count: Int!
+}
+
+"""An edge in a connection."""
+type MyKeypairEdge
+  @join__type(graph: STRAWBERRY)
+{
+  """A cursor for use in pagination"""
+  cursor: String!
+
+  """The item at the end of the edge"""
+  node: MyKeypair!
 }
 
 """Added in 24.12.0."""
@@ -10199,6 +10312,11 @@ type Query
 
   """List route history (superadmin only)"""
   routeHistories(filter: RouteHistoryFilter = null, orderBy: [RouteHistoryOrderBy!] = null, before: String = null, after: String = null, first: Int = null, last: Int = null, limit: Int = null, offset: Int = null): RouteHistoryConnection @join__field(graph: STRAWBERRY) @deprecated(reason: "Use admin_route_histories instead. This API will be removed after v26.3.0. See BEP-1041 for migration guide.")
+
+  """
+  Added in 26.x. List keypairs of the current authenticated user. Returns all keypairs belonging to the currently authenticated user. Supports filtering, ordering, and cursor-based pagination. Returns an error if not authenticated.
+  """
+  myKeypairs(filter: KeyPairFilter = null, orderBy: [KeyPairOrderBy!] = null, before: String = null, after: String = null, first: Int = null, last: Int = null, limit: Int = null, offset: Int = null): MyKeypairConnection @join__field(graph: STRAWBERRY)
 
   """
   Added in 26.2.0. Get a single user by UUID (admin only). Requires superadmin privileges. Returns an error if user is not found.
