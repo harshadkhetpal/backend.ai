@@ -48,10 +48,10 @@ from ai.backend.manager.data.deployment.types import (
     DeploymentInfo,
     DeploymentInfoSearchResult,
     DeploymentInfoWithAutoScalingRules,
+    DeploymentLifecycleSubStep,
     DeploymentPolicyData,
     DeploymentPolicySearchResult,
     DeploymentPolicyUpsertResult,
-    DeploymentSubStep,
     DeploymentWithHistory,
     ModelDeploymentAutoScalingRuleData,
     ModelRevisionData,
@@ -288,7 +288,7 @@ class DeploymentRepository:
     async def get_endpoints_by_statuses(
         self,
         statuses: list[EndpointLifecycle],
-        sub_steps: list[DeploymentSubStep] | None = None,
+        sub_steps: list[DeploymentLifecycleSubStep] | None = None,
     ) -> list[DeploymentInfo]:
         """Get endpoints by lifecycle statuses, optionally filtered by sub_steps."""
         return await self._db_source.get_endpoints_by_statuses(statuses, sub_steps=sub_steps)
@@ -298,6 +298,7 @@ class DeploymentRepository:
         self,
         statuses: list[EndpointLifecycle],
         handler_name: str,
+        sub_steps: list[DeploymentLifecycleSubStep] | None = None,
     ) -> list[DeploymentWithHistory]:
         """Get deployments for handler execution with history populated.
 
@@ -308,11 +309,14 @@ class DeploymentRepository:
         Args:
             statuses: Endpoint lifecycle statuses to include
             handler_name: Current handler phase name for history matching
+            sub_steps: Optional sub-step filter for deployment handlers
 
         Returns:
             List of DeploymentWithHistory with history fields populated.
         """
-        return await self._db_source.fetch_deployments_for_handler(statuses, handler_name)
+        return await self._db_source.fetch_deployments_for_handler(
+            statuses, handler_name, sub_steps
+        )
 
     @deployment_repository_resilience.apply()
     async def get_endpoint_info(

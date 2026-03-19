@@ -16,7 +16,6 @@ from ai.backend.common.types import (
     RuntimeVariant,
     VFolderMount,
 )
-from ai.backend.manager.data.deployment.types import DeploymentSubStatus
 from ai.backend.manager.models.endpoint import EndpointLifecycle, EndpointRow
 from ai.backend.manager.repositories.base import CreatorSpec
 from ai.backend.manager.repositories.base.updater import BatchUpdaterSpec
@@ -184,7 +183,7 @@ class EndpointLifecycleBatchUpdaterSpec(BatchUpdaterSpec[EndpointRow]):
     """
 
     lifecycle_stage: EndpointLifecycle
-    sub_step: DeploymentSubStatus | None = None
+    sub_step: str | None = None
 
     @property
     @override

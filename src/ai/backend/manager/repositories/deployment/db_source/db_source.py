@@ -41,13 +41,14 @@ from ai.backend.manager.data.deployment.scale_modifier import (
 from ai.backend.manager.data.deployment.types import (
     AccessTokenSearchResult,
     AutoScalingRuleSearchResult,
+    DeployingSubStep,
     DeploymentInfo,
     DeploymentInfoSearchResult,
     DeploymentInfoWithAutoScalingRules,
+    DeploymentLifecycleSubStep,
     DeploymentPolicyData,
     DeploymentPolicySearchResult,
     DeploymentPolicyUpsertResult,
-    DeploymentSubStep,
     DeploymentWithHistory,
     ModelDeploymentAccessTokenData,
     ModelDeploymentAutoScalingRuleData,
@@ -495,7 +496,7 @@ class DeploymentDBSource:
     async def get_endpoints_by_statuses(
         self,
         statuses: list[EndpointLifecycle],
-        sub_steps: list[DeploymentSubStep] | None = None,
+        sub_steps: list[DeploymentLifecycleSubStep] | None = None,
     ) -> list[DeploymentInfo]:
         """Get endpoints by lifecycle statuses, optionally filtered by sub_steps."""
         async with self._begin_readonly_session_read_committed() as db_sess:
@@ -506,6 +507,7 @@ class DeploymentDBSource:
         self,
         statuses: list[EndpointLifecycle],
         handler_name: str,
+        sub_steps: list[DeploymentLifecycleSubStep] | None = None,
     ) -> list[DeploymentWithHistory]:
         """Fetch deployments for handler execution with history populated.
 
@@ -518,12 +520,13 @@ class DeploymentDBSource:
         Args:
             statuses: Endpoint lifecycle statuses to include
             handler_name: Current handler phase name for history matching
+            sub_steps: Optional sub-step filter for deployment handlers
 
         Returns:
             List of DeploymentWithHistory with history fields populated.
         """
         async with self._begin_readonly_session_read_committed() as db_sess:
-            rows = await self._get_endpoints_by_statuses(db_sess, statuses)
+            rows = await self._get_endpoints_by_statuses(db_sess, statuses, sub_steps)
             if not rows:
                 return []
 
@@ -549,7 +552,7 @@ class DeploymentDBSource:
         self,
         db_sess: SASession,
         statuses: list[EndpointLifecycle],
-        sub_steps: list[DeploymentSubStep] | None = None,
+        sub_steps: list[DeploymentLifecycleSubStep] | None = None,
     ) -> list[EndpointRow]:
         """Fetch endpoints by lifecycle statuses, optionally filtered by sub_steps."""
         where_clause: sa.ColumnElement[bool] = EndpointRow.lifecycle_stage.in_(statuses)
@@ -2266,6 +2269,7 @@ class DeploymentDBSource:
                 .values(
                     deploying_revision=revision_id,
                     lifecycle_stage=EndpointLifecycle.DEPLOYING,
+                    sub_step=DeployingSubStep.PROVISIONING,
                 )
                 .returning(EndpointRow.current_revision)
             )

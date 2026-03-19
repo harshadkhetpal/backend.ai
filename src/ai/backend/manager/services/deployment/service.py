@@ -20,8 +20,8 @@ from ai.backend.logging.utils import BraceStyleAdapter
 from ai.backend.manager.data.deployment.creator import ModelRevisionCreator
 from ai.backend.manager.data.deployment.types import (
     ClusterConfigData,
+    DeployingSubStep,
     DeploymentInfo,
-    DeploymentSubStep,
     ExtraVFolderMountData,
     ModelDeploymentAccessTokenData,
     ModelDeploymentData,
@@ -245,6 +245,7 @@ def _convert_deployment_info_to_data(info: DeploymentInfo) -> ModelDeploymentDat
         default_deployment_strategy=DeploymentStrategy.ROLLING,
         created_user_id=info.metadata.created_user,
         policy=info.policy,
+        sub_step=info.sub_step,
     )
 
 
@@ -697,7 +698,7 @@ class DeploymentService:
 
         # 4. Trigger DEPLOYING lifecycle to start strategy execution
         await self._deployment_controller.mark_lifecycle_needed(
-            DeploymentLifecycleType.DEPLOYING, sub_step=DeploymentSubStep.PROVISIONING
+            DeploymentLifecycleType.DEPLOYING, sub_step=DeployingSubStep.PROVISIONING
         )
 
         log.info(

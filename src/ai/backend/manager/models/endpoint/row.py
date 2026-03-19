@@ -67,7 +67,6 @@ from ai.backend.manager.data.deployment.types import (
     DeploymentMetadata,
     DeploymentNetworkSpec,
     DeploymentState,
-    DeploymentSubStep,
     ExecutionSpec,
     ModelDeploymentAutoScalingRuleData,
     ModelRevisionSpec,
@@ -315,9 +314,9 @@ class EndpointRow(Base):  # type: ignore[misc]
     deploying_revision: Mapped[UUID | None] = mapped_column(
         "deploying_revision", GUID, nullable=True
     )
-    sub_step: Mapped[DeploymentSubStep | None] = mapped_column(
+    sub_step: Mapped[str | None] = mapped_column(
         "sub_step",
-        StrEnumType(DeploymentSubStep),
+        sa.String,
         nullable=True,
         default=None,
     )
