@@ -165,19 +165,21 @@ class ScratchProvisioner(Provisioner[ScratchSpec, ScratchResult]):
             )
             exit_code = await mkfs.wait()
             if exit_code != 0:
-                raise MkfsError
+                raise MkfsError(f"mkfs.ext4 failed with exit code {exit_code}")
             mount = await asyncio.create_subprocess_exec(
                 "mount", str(scratch_file), str(scratch_dir)
             )
             exit_code = await mount.wait()
             if exit_code != 0:
-                raise ScratchMountError
+                raise ScratchMountError(f"mount failed with exit code {exit_code}")
         except Exception:
             try:
-                scratch_file.unlink()
+                await loop.run_in_executor(None, scratch_file.unlink)
             except FileNotFoundError:
                 pass
-            shutil.rmtree(scratch_dir, ignore_errors=True)
+            await loop.run_in_executor(
+                None, functools.partial(shutil.rmtree, scratch_dir, ignore_errors=True)
+            )
             raise
 
     async def _create_scratch_dirs(self, spec: ScratchSpec) -> None:
@@ -315,7 +317,7 @@ class ScratchProvisioner(Provisioner[ScratchSpec, ScratchResult]):
         umount = await asyncio.create_subprocess_exec("umount", str(scratch_dir))
         exit_code = await umount.wait()
         if exit_code != 0:
-            raise ScratchUmountError
+            raise ScratchUmountError(f"umount failed with exit code {exit_code}")
         await loop.run_in_executor(None, scratch_file.unlink)
         await loop.run_in_executor(None, shutil.rmtree, str(scratch_dir))
 
