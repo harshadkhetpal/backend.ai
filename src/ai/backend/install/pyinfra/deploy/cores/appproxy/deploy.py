@@ -46,10 +46,10 @@ def create_worker_configs(service_dir: Path, config: object) -> dict[str, dict[s
 
 class AppProxyDeploy(BaseDeploy):
     def __init__(self, host_data: object) -> None:
-        self.home_dir = host.data.bai_home_dir
-        self.user = host.data.bai_user
-        self.user_id = host.data.bai_user_id
-        self.group_id = host.data.bai_user_group_id
+        self.home_dir = host_data.bai_home_dir
+        self.user = host_data.bai_user
+        self.user_id = host_data.bai_user_id
+        self.group_id = host_data.bai_user_group_id
 
         self.config = host_data.services["appproxy"]
         self.config_db = host_data.services["postgres"]
@@ -58,8 +58,8 @@ class AppProxyDeploy(BaseDeploy):
         self.config_etcd = host_data.services.get("etcd", None)
 
         self.appproxy_major_version = get_major_version(self.config_bai_core.version)
-        self.pip_install_options = host.data.bai_pip_install_options
-        self.python_version = host.data.python_version
+        self.pip_install_options = host_data.bai_pip_install_options
+        self.python_version = host_data.python_version
         self.python_path = (
             f"{self.home_dir}/.static-python/versions/{self.python_version}/bin/python3"
         )
@@ -77,8 +77,6 @@ class AppProxyDeploy(BaseDeploy):
         """Deploy AppProxy coordinator component"""
         module_path = Path(__file__).parent / "coordinator" / "deploy.py"
         spec = importlib.util.spec_from_file_location("coordinator.deploy", module_path)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot load module from {module_path}")
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load module from {module_path}")
         module = importlib.util.module_from_spec(spec)

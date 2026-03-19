@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import textwrap
 from pathlib import Path
 from typing import Any, cast
@@ -224,21 +225,87 @@ class ProductionSetup(Static):
                     "This mode deploys Backend.AI to production servers using PyInfra.\n"
                 )
             )
-            _log.write(
-                Text.from_markup(
-                    "[yellow]This feature is under development.[/]\n"
-                    "Required: inventory.py (host definitions) and .env (environment config)\n"
+
+            # Check prerequisites
+            build_root = find_build_root()
+            pyinfra_dir = build_root / "src" / "ai" / "backend" / "install" / "pyinfra"
+            inventory_path = pyinfra_dir / "inventory.py"
+            env_path = pyinfra_dir / ".env"
+
+            _log.write(Text.from_markup("\n[bold]Checking prerequisites...[/]\n"))
+
+            # Check inventory.py
+            if inventory_path.exists():
+                _log.write(
+                    Text.from_markup(
+                        f"  [green]✓[/] inventory.py found at {shorten_path(inventory_path)}"
+                    )
                 )
-            )
+            else:
+                _log.write(
+                    Text.from_markup(
+                        f"  [red]✗[/] inventory.py not found at {shorten_path(inventory_path)}"
+                    )
+                )
+                _log.write(
+                    Text.from_markup(
+                        "    [dim]Create inventory.py with host definitions. See inventory_base.py for reference.[/]"
+                    )
+                )
+
+            # Check .env
+            if env_path.exists():
+                _log.write(
+                    Text.from_markup(f"  [green]✓[/] .env found at {shorten_path(env_path)}")
+                )
+            else:
+                _log.write(
+                    Text.from_markup(f"  [red]✗[/] .env not found at {shorten_path(env_path)}")
+                )
+                _log.write(
+                    Text.from_markup(
+                        "    [dim]Create .env with environment configuration (passwords, endpoints, etc.)[/]"
+                    )
+                )
+
+            # Check pyinfra availability
+            pyinfra_cmd = shutil.which("pyinfra")
+            if pyinfra_cmd:
+                _log.write(Text.from_markup(f"  [green]✓[/] pyinfra found at {pyinfra_cmd}"))
+            else:
+                _log.write(Text.from_markup("  [red]✗[/] pyinfra not found in PATH"))
+                _log.write(Text.from_markup("    [dim]Install with: pip install pyinfra[/]"))
+
             _log.write(
                 Text.from_markup(
-                    "[dim]Available deployment modules:[/]\n"
+                    "\n[bold]Available deployment modules:[/]\n"
                     "  - OS setup (docker, python, tools, network)\n"
                     "  - Halfstack (postgres, redis, etcd)\n"
                     "  - Core services (manager, agent, webserver, storage_proxy, appproxy)\n"
                     "  - Monitoring (prometheus, grafana, loki, pyroscope)\n"
                 )
             )
+
+            if not inventory_path.exists() or not env_path.exists() or not pyinfra_cmd:
+                _log.write(
+                    Text.from_markup(
+                        "\n[yellow]Prerequisites not met.[/]\n"
+                        "Please create the required files and install pyinfra before proceeding.\n"
+                    )
+                )
+            else:
+                _log.write(
+                    Text.from_markup(
+                        "\n[green]All prerequisites met![/]\n"
+                        "To deploy, run pyinfra from the command line:\n"
+                        f"  cd {shorten_path(pyinfra_dir)}\n"
+                        "  pyinfra inventory.py deploy/<module>/deploy.py\n\n"
+                        "[dim]Example modules:[/]\n"
+                        "  deploy/os/docker/deploy.py      - Install Docker\n"
+                        "  deploy/halfstack/postgres/deploy.py - Deploy PostgreSQL\n"
+                        "  deploy/cores/manager/deploy.py  - Deploy Manager\n"
+                    )
+                )
         except asyncio.CancelledError:
             _log.write(Text.from_markup("[red]Interrupted!"))
             await asyncio.sleep(1)
