@@ -190,6 +190,110 @@ class BatchPurgerResult:
     deleted_count: int
 
 
+async def execute_bulk_purger_partial[TRow: Base](
+    db_sess: SASession,
+    purgers: list[Purger[TRow]],
+) -> BulkPurgerResultWithFailures[TRow]:
+    """Execute bulk DELETE with partial failure support.
+
+    Unlike execute_batch_purger which uses subquery-based deletion and fails
+    atomically, this function processes each purger individually and collects
+    both successes and failures.
+
+    Processing strategy:
+    - Each purger is executed individually within a savepoint (begin_nested)
+    - If a purger succeeds, the deleted row is added to successes
+    - If a purger fails (any exception), it's added to errors with context
+    - If a purger targets a non-existent PK, no row is returned (not an error)
+    - Order is preserved in successes list
+
+    Args:
+        db_sess: Database session (must be writable)
+        purgers: List of Purger instances targeting rows to delete
+
+    Returns:
+        BulkPurgerResultWithFailures containing successes and errors
+
+    Raises:
+        UnsupportedCompositePrimaryKeyError: If any purger targets a table
+            with composite primary key
+
+    Note:
+        The caller controls the transaction boundary (commit/rollback).
+        Successful deletes are flushed immediately and will persist on commit.
+        Failed deletes do not affect successful ones.
+
+    Example:
+        purgers = [
+            Purger(SessionRow, session_id_1),
+            Purger(SessionRow, session_id_2),
+            Purger(SessionRow, session_id_with_fk_constraint),  # Fails
+        ]
+        result = await execute_bulk_purger_partial(db_sess, purgers)
+
+        print(f"Deleted {result.success_count()} sessions")
+        print(f"Failed {len(result.errors)} sessions")
+        for error in result.errors:
+            print(f"  - Index {error.index}: {error.exception}")
+    """
+    if not purgers:
+        return BulkPurgerResultWithFailures(successes=[], errors=[])
+
+    successes: list[TRow] = []
+    errors: list[BulkPurgerError[TRow]] = []
+
+    for index, purger in enumerate(purgers):
+        # Use nested transaction (savepoint) to isolate each row deletion
+        # If this row fails, only this savepoint is rolled back, not the entire session
+        async with db_sess.begin_nested():
+            try:
+                row_class = purger.row_class
+                table = row_class.__table__
+                pk_columns = list(table.primary_key.columns)
+
+                if len(pk_columns) != 1:
+                    raise UnsupportedCompositePrimaryKeyError(
+                        f"Purger only supports single-column primary keys (table: {table.name})",
+                    )
+
+                stmt = (
+                    sa.delete(table)
+                    .where(pk_columns[0] == purger.pk_value)
+                    .returning(*table.columns)
+                )
+
+                result = await db_sess.execute(stmt)
+                row_data = result.fetchone()
+
+                # If no row matched, just skip (not an error)
+                if row_data is not None:
+                    deleted_row: TRow = row_class(**dict(row_data._mapping))
+                    successes.append(deleted_row)
+            except sa.exc.IntegrityError as e:
+                # The nested transaction automatically rolls back on exception
+                # This only affects the current row, not previous successful ones
+                parsed = parse_integrity_error(e)
+                errors.append(
+                    BulkPurgerError(
+                        purger=purger,
+                        exception=parsed,
+                        index=index,
+                    )
+                )
+            except Exception as e:
+                # The nested transaction automatically rolls back on exception
+                # This only affects the current row, not previous successful ones
+                errors.append(
+                    BulkPurgerError(
+                        purger=purger,
+                        exception=e,
+                        index=index,
+                    )
+                )
+
+    return BulkPurgerResultWithFailures(successes=successes, errors=errors)
+
+
 async def execute_batch_purger[TRow: Base](
     db_sess: SASession,
     purger: BatchPurger[TRow],
