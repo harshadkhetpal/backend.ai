@@ -25,6 +25,7 @@ from ai.backend.manager.repositories.huggingface_registry.repositories import (
     HuggingFaceRegistryRepositories,
 )
 from ai.backend.manager.repositories.image.repositories import ImageRepositories
+from ai.backend.manager.repositories.keypair.repositories import KeyPairRepositories
 from ai.backend.manager.repositories.keypair_resource_policy.repositories import (
     KeypairResourcePolicyRepositories,
 )
@@ -85,6 +86,7 @@ class Repositories:
     fair_share: FairShareRepositories
     group: GroupRepositories
     image: ImageRepositories
+    keypair: KeyPairRepositories
     keypair_resource_policy: KeypairResourcePolicyRepositories
     manager_admin: ManagerAdminRepositories
     metric: MetricRepositories
@@ -130,6 +132,7 @@ class Repositories:
         fair_share_repositories = FairShareRepositories.create(args)
         group_repositories = GroupRepositories.create(args)
         image_repositories = ImageRepositories.create(args)
+        keypair_repositories = KeyPairRepositories.create(args)
         keypair_resource_policy_repositories = KeypairResourcePolicyRepositories.create(args)
         manager_admin_repositories = ManagerAdminRepositories.create(args)
         metric_repositories = MetricRepositories.create(args)
@@ -174,6 +177,7 @@ class Repositories:
             fair_share=fair_share_repositories,
             group=group_repositories,
             image=image_repositories,
+            keypair=keypair_repositories,
             keypair_resource_policy=keypair_resource_policy_repositories,
             manager_admin=manager_admin_repositories,
             metric=metric_repositories,

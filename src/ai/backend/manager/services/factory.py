@@ -159,6 +159,7 @@ def create_services(args: ServiceArgs) -> Services:
             args.valkey_stat_client,
             args.agent_registry,
             repositories.user.repository,
+            repositories.keypair.repository,
         ),
         image=ImageService(
             args.agent_registry, repositories.image.repository, args.config_provider
