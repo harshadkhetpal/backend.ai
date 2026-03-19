@@ -44,6 +44,10 @@ from ai.backend.manager.services.user.actions.purge_user import (
     PurgeUserAction,
     PurgeUserActionResult,
 )
+from ai.backend.manager.services.user.actions.search_my_keypairs import (
+    SearchMyKeypairsAction,
+    SearchMyKeypairsActionResult,
+)
 from ai.backend.manager.services.user.actions.search_users import (
     SearchUsersAction,
     SearchUsersActionResult,
@@ -92,6 +96,7 @@ class UserProcessors(AbstractProcessorPackage):
         SwitchMyMainAccessKeyAction, SwitchMyMainAccessKeyActionResult
     ]
     update_my_keypair: ActionProcessor[UpdateMyKeypairAction, UpdateMyKeypairActionResult]
+    search_my_keypairs: ActionProcessor[SearchMyKeypairsAction, SearchMyKeypairsActionResult]
 
     def __init__(
         self,
@@ -125,6 +130,7 @@ class UserProcessors(AbstractProcessorPackage):
             user_service.switch_my_main_access_key, action_monitors
         )
         self.update_my_keypair = ActionProcessor(user_service.update_my_keypair, action_monitors)
+        self.search_my_keypairs = ActionProcessor(user_service.search_my_keypairs, action_monitors)
 
     @override
     def supported_actions(self) -> list[ActionSpec]:
@@ -147,4 +153,5 @@ class UserProcessors(AbstractProcessorPackage):
             RevokeMyKeypairAction.spec(),
             SwitchMyMainAccessKeyAction.spec(),
             UpdateMyKeypairAction.spec(),
+            SearchMyKeypairsAction.spec(),
         ]
