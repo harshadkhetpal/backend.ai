@@ -211,9 +211,9 @@ class TestStrategyResultApplier:
         self,
         applier: StrategyResultApplier,
         mock_deployment_repo: AsyncMock,
-        mixed_summary: tuple[StrategyEvaluationSummary, UUID, UUID],
+        mixed_summary: tuple[StrategyEvaluationSummary, UUID, UUID, UUID],
     ) -> None:
-        summary, _provisioning_id, completed_id = mixed_summary
+        summary, _provisioning_id, completed_id, _rolled_back_id = mixed_summary
         mock_deployment_repo.apply_strategy_mutations.return_value = 1
 
         result = await applier.apply(summary)
