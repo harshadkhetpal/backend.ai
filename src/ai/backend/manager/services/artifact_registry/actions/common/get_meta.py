@@ -6,6 +6,7 @@ from ai.backend.common.data.permission.types import RBACElementType
 from ai.backend.manager.actions.types import ActionOperationType
 from ai.backend.manager.data.artifact_registries.types import ArtifactRegistryData
 from ai.backend.manager.data.permission.types import RBACElementRef
+from ai.backend.manager.errors.api import InvalidAPIParameters
 from ai.backend.manager.services.artifact_registry.actions.base import (
     ArtifactRegistrySingleEntityAction,
     ArtifactRegistrySingleEntityActionResult,
@@ -26,7 +27,9 @@ class GetArtifactRegistryMetaAction(ArtifactRegistrySingleEntityAction):
     def target_entity_id(self) -> str:
         if self.registry_id:
             return str(self.registry_id)
-        return self.registry_name or ""
+        if self.registry_name:
+            return self.registry_name
+        raise InvalidAPIParameters("Either registry_id or registry_name must be provided.")
 
     @override
     def target_element(self) -> RBACElementRef:
