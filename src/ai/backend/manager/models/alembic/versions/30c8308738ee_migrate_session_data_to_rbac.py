@@ -1,7 +1,7 @@
 """migrate_session_data_to_rbac
 
 Revision ID: 30c8308738ee
-Revises: 3f5c20f7bb07
+Revises: 5a4e677aea42
 Create Date: 2026-03-05 03:10:36.273207
 
 """
@@ -19,7 +19,7 @@ from ai.backend.manager.models.rbac_models.migration.enums import (
 
 # revision identifiers, used by Alembic.
 revision = "30c8308738ee"
-down_revision = "3f5c20f7bb07"
+down_revision = "5a4e677aea42"
 branch_labels = None
 depends_on = None
 
