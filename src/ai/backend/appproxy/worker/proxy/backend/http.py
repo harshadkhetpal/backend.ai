@@ -232,7 +232,7 @@ class HTTPBackend(BaseBackend):
             raise asyncio.CancelledError() from e
         except aiohttp.ClientOSError as e:
             raise ContainerConnectionRefused from e
-        except:
+        except BaseException:
             log.exception("Unhandled exception while proxying HTTP request")
             raise
 
