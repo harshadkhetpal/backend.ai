@@ -89,6 +89,7 @@ class RBACElementTypeGQL(StrEnum):
     DEPLOYMENT_TOKEN = "deployment:token"
     DEPLOYMENT_POLICY = "deployment:policy"
     DEPLOYMENT_REVISION = "deployment:revision"
+    IMAGE_ALIAS = "image:alias"
 
     # Entity-level scopes
     ARTIFACT_REVISION = "artifact_revision"
@@ -276,6 +277,7 @@ class PermissionGQL(Node):
                 | RBACElementType.DEPLOYMENT_TOKEN
                 | RBACElementType.DEPLOYMENT_POLICY
                 | RBACElementType.DEPLOYMENT_REVISION
+                | RBACElementType.IMAGE_ALIAS
             ):
                 return None
 
