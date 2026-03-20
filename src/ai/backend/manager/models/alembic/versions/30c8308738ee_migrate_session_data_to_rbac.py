@@ -26,6 +26,8 @@ depends_on = None
 # Constants
 BATCH_SIZE = 1000
 MEMBER_ROLE_SUFFIX = "member"
+SESSION_ENTITY_TYPE = EntityType.SESSION.value
+AUTO_RELATION_TYPE = "auto"
 
 
 def _add_entity_type_permissions(db_conn: Connection) -> None:
@@ -93,7 +95,7 @@ def _add_entity_type_permissions(db_conn: Connection) -> None:
             "member_ops": member_ops,
             "owner_ops": owner_ops,
             "member_pattern": f"%{MEMBER_ROLE_SUFFIX}",
-            "entity_type": EntityType.SESSION.value,
+            "entity_type": SESSION_ENTITY_TYPE,
         },
     )
 
@@ -107,9 +109,6 @@ def _associate_sessions_to_scopes(db_conn: Connection) -> None:
 
     Uses keyset pagination for scalability.
     """
-    entity_type = EntityType.SESSION.value
-    relation_type = "auto"
-
     # Process User scope edges
     last_id = UUID("00000000-0000-0000-0000-000000000000")
     while True:
@@ -131,9 +130,9 @@ def _associate_sessions_to_scopes(db_conn: Connection) -> None:
             {
                 "scope_type": "user",
                 "scope_id": str(row.user_uuid),
-                "entity_type": entity_type,
+                "entity_type": SESSION_ENTITY_TYPE,
                 "entity_id": str(row.id),
-                "relation_type": relation_type,
+                "relation_type": AUTO_RELATION_TYPE,
             }
             for row in rows
         ]
@@ -168,9 +167,9 @@ def _associate_sessions_to_scopes(db_conn: Connection) -> None:
             {
                 "scope_type": "project",
                 "scope_id": str(row.group_id),
-                "entity_type": entity_type,
+                "entity_type": SESSION_ENTITY_TYPE,
                 "entity_id": str(row.id),
-                "relation_type": relation_type,
+                "relation_type": AUTO_RELATION_TYPE,
             }
             for row in rows
         ]
@@ -187,8 +186,6 @@ def _associate_sessions_to_scopes(db_conn: Connection) -> None:
 
 def _remove_session_permissions(db_conn: Connection) -> None:
     """Remove all SESSION entity-type permissions."""
-    entity_type = EntityType.SESSION.value
-
     while True:
         # Delete permissions in batches using a parameterized subquery
         delete_query = sa.text("""
@@ -201,7 +198,7 @@ def _remove_session_permissions(db_conn: Connection) -> None:
         """)
         result = db_conn.execute(
             delete_query,
-            {"entity_type": entity_type, "limit": BATCH_SIZE},
+            {"entity_type": SESSION_ENTITY_TYPE, "limit": BATCH_SIZE},
         )
         if result.rowcount == 0:
             break
@@ -209,8 +206,6 @@ def _remove_session_permissions(db_conn: Connection) -> None:
 
 def _remove_session_edges(db_conn: Connection) -> None:
     """Remove all SESSION AUTO edges from association_scopes_entities."""
-    entity_type = EntityType.SESSION.value
-
     while True:
         # Delete associations in batches using a parameterized subquery
         delete_query = sa.text("""
@@ -223,7 +218,7 @@ def _remove_session_edges(db_conn: Connection) -> None:
         """)
         result = db_conn.execute(
             delete_query,
-            {"entity_type": entity_type, "limit": BATCH_SIZE},
+            {"entity_type": SESSION_ENTITY_TYPE, "limit": BATCH_SIZE},
         )
         if result.rowcount == 0:
             break
