@@ -17,7 +17,6 @@ from ai.backend.common.events.event_types.session.broadcast import SchedulingBro
 from ai.backend.common.events.hub.hub import EventHub
 from ai.backend.common.types import AgentId
 from ai.backend.logging.utils import BraceStyleAdapter
-from ai.backend.manager.data.deployment.types import DeployingSubStep
 from ai.backend.manager.scheduler.types import ScheduleType
 from ai.backend.manager.sokovan.deployment.coordinator import DeploymentCoordinator
 from ai.backend.manager.sokovan.deployment.route.coordinator import RouteCoordinator
@@ -93,16 +92,14 @@ class ScheduleEventHandler:
     ) -> None:
         """Handle deployment lifecycle if needed event (checks marks)."""
         lifecycle_type = DeploymentLifecycleType(ev.lifecycle_type)
-        sub_step = DeployingSubStep(ev.sub_step) if ev.sub_step else None
-        await self._deployment_coordinator.process_if_needed(lifecycle_type, sub_step)
+        await self._deployment_coordinator.process_if_needed(lifecycle_type, ev.sub_step)
 
     async def handle_do_deployment_lifecycle(
         self, _context: None, _agent_id: str, ev: DoDeploymentLifecycleEvent
     ) -> None:
         """Handle deployment lifecycle event (unconditional)."""
         lifecycle_type = DeploymentLifecycleType(ev.lifecycle_type)
-        sub_step = DeployingSubStep(ev.sub_step) if ev.sub_step else None
-        await self._deployment_coordinator.process_deployment_lifecycle(lifecycle_type, sub_step)
+        await self._deployment_coordinator.process_deployment_lifecycle(lifecycle_type, ev.sub_step)
 
     async def handle_do_route_lifecycle_if_needed(
         self, _context: None, _agent_id: str, ev: DoRouteLifecycleIfNeededEvent

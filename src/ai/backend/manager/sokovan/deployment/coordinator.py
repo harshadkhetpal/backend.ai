@@ -161,6 +161,15 @@ class HandlerRegistry:
             if lt == lifecycle_type and sub_step is not None
         ]
 
+    def resolve_sub_step(
+        self, lifecycle_type: DeploymentLifecycleType, raw: str
+    ) -> DeploymentLifecycleSubStep:
+        """Resolve a raw sub-step string using registered handler keys."""
+        for lt, sub_step in self.handlers:
+            if lt == lifecycle_type and sub_step is not None and sub_step.value == raw:
+                return sub_step
+        raise ValueError(f"Unknown sub-step {raw!r} for lifecycle type {lifecycle_type!r}")
+
 
 @dataclass
 class DeploymentTaskSpec:
@@ -341,8 +350,11 @@ class DeploymentCoordinator:
     async def process_deployment_lifecycle(
         self,
         lifecycle_type: DeploymentLifecycleType,
-        sub_step: DeploymentLifecycleSubStep | None = None,
+        raw_sub_step: str | None = None,
     ) -> None:
+        sub_step = (
+            self._registry.resolve_sub_step(lifecycle_type, raw_sub_step) if raw_sub_step else None
+        )
         handler = self._registry.handlers.get((lifecycle_type, sub_step))
         if handler is None:
             log.warning(
@@ -748,15 +760,14 @@ class DeploymentCoordinator:
     async def process_if_needed(
         self,
         lifecycle_type: DeploymentLifecycleType,
-        sub_step: DeploymentLifecycleSubStep | None = None,
+        raw_sub_step: str | None = None,
     ) -> None:
         """Process deployment lifecycle operation if needed (based on internal state)."""
-        sub_step_value = sub_step.value if sub_step is not None else None
         if not await self._valkey_schedule.load_and_delete_deployment_mark(
-            lifecycle_type.value, sub_step_value
+            lifecycle_type.value, raw_sub_step
         ):
             return
-        await self.process_deployment_lifecycle(lifecycle_type, sub_step)
+        await self.process_deployment_lifecycle(lifecycle_type, raw_sub_step)
 
     def _create_task_specs(self) -> list[DeploymentTaskSpec]:
         """Create task specifications for all deployment lifecycle types.
