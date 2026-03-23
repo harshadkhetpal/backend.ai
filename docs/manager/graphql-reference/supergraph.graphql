@@ -5526,16 +5526,13 @@ Added in 26.2.0. Payload returned after issuing a new keypair. The secret_key is
 type IssueMyKeypairPayload
   @join__type(graph: STRAWBERRY)
 {
-  """The newly generated access key."""
-  accessKey: String!
+  """The newly created keypair."""
+  keypair: KeyPairGQL!
 
   """
   The newly generated secret key. This value is only returned at creation time.
   """
   secretKey: String!
-
-  """The generated SSH public key."""
-  sshPublicKey: String!
 }
 
 interface Item
@@ -11503,8 +11500,8 @@ type RouteEdge
 input RouteFilter
   @join__type(graph: STRAWBERRY)
 {
-  status: RouteStatusFilter = null
-  trafficStatus: RouteTrafficStatusFilter = null
+  status: [RouteStatus!] = null
+  trafficStatus: [RouteTrafficStatus!] = null
   AND: [RouteFilter!] = null
   OR: [RouteFilter!] = null
   NOT: [RouteFilter!] = null
@@ -11629,25 +11626,6 @@ enum RouteStatus
 }
 
 """
-Added in 26.3.0. Filter for route status with equality and membership operators.
-"""
-input RouteStatusFilter
-  @join__type(graph: STRAWBERRY)
-{
-  """Matches routes with this exact status."""
-  equals: RouteStatus = null
-
-  """Matches routes whose status is in this list."""
-  in: [RouteStatus!] = null
-
-  """Excludes routes with this exact status."""
-  notEquals: RouteStatus = null
-
-  """Excludes routes whose status is in this list."""
-  notIn: [RouteStatus!] = null
-}
-
-"""
 Added in 25.19.0. Traffic routing status for a route. Controls whether traffic should be sent to this route.
 """
 enum RouteTrafficStatus
@@ -11655,25 +11633,6 @@ enum RouteTrafficStatus
 {
   ACTIVE @join__enumValue(graph: STRAWBERRY)
   INACTIVE @join__enumValue(graph: STRAWBERRY)
-}
-
-"""
-Added in 26.3.0. Filter for route traffic status with equality and membership operators.
-"""
-input RouteTrafficStatusFilter
-  @join__type(graph: STRAWBERRY)
-{
-  """Matches routes with this exact traffic status."""
-  equals: RouteTrafficStatus = null
-
-  """Matches routes whose traffic status is in this list."""
-  in: [RouteTrafficStatus!] = null
-
-  """Excludes routes with this exact traffic status."""
-  notEquals: RouteTrafficStatus = null
-
-  """Excludes routes whose traffic status is in this list."""
-  notIn: [RouteTrafficStatus!] = null
 }
 
 type Routing implements Item
@@ -13008,8 +12967,8 @@ input UpdateMyKeypairInput
 type UpdateMyKeypairPayload
   @join__type(graph: STRAWBERRY)
 {
-  """Whether the update was successful."""
-  success: Boolean!
+  """The updated keypair."""
+  keypair: KeyPairGQL!
 }
 
 """Added in 24.09.0. Input for updating a notification channel"""

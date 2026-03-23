@@ -20,7 +20,11 @@ from ai.backend.common.data.permission.types import RBACElementType
 from ai.backend.common.types import AccessKey, VFolderID
 from ai.backend.logging.utils import BraceStyleAdapter
 from ai.backend.manager.data.common.types import SearchResult
-from ai.backend.manager.data.keypair.types import GeneratedKeyPairData, KeyPairCreator, KeyPairData
+from ai.backend.manager.data.keypair.types import (
+    GeneratedKeyPairData,
+    KeyPairCreator,
+    KeyPairData,
+)
 from ai.backend.manager.data.permission.types import RBACElementRef
 from ai.backend.manager.data.user.types import (
     BulkUserCreateResultData,
@@ -90,7 +94,7 @@ from ai.backend.manager.repositories.base.rbac.entity_creator import (
     RBACEntityCreator,
     execute_rbac_entity_creator,
 )
-from ai.backend.manager.repositories.base.updater import BulkUpdaterError, Updater
+from ai.backend.manager.repositories.base.updater import BulkUpdaterError, Updater, execute_updater
 from ai.backend.manager.repositories.keypair.creators import KeyPairCreatorSpec
 from ai.backend.manager.repositories.keypair.types import UserKeypairSearchScope
 from ai.backend.manager.repositories.permission_controller.creators import UserRoleCreatorSpec
@@ -1278,16 +1282,16 @@ class UserDBSource:
                     rate_limit=DEFAULT_KEYPAIR_RATE_LIMIT,
                 )
 
-            generated = generate_keypair_data()
+            secrets = generate_keypair_data()
             kp_spec = KeyPairCreatorSpec(
                 creator=keypair_creator,
-                generated_data=generated,
+                generated_data=secrets,
                 user_id=user_uuid,
                 email=user_row.email,
             )
             kp_creator = Creator(spec=kp_spec)
-            await execute_creator(session, kp_creator)
-            return generated
+            result = await execute_creator(session, kp_creator)
+            return GeneratedKeyPairData(keypair=result.row.to_data())
 
     async def revoke_my_keypair(self, user_uuid: UUID, access_key: str) -> None:
         """Revoke a keypair owned by the current user."""
@@ -1347,26 +1351,26 @@ class UserDBSource:
                 sa.update(users).where(users.c.uuid == user_uuid).values(main_access_key=access_key)
             )
 
-    async def update_my_keypair(self, user_uuid: UUID, access_key: str, is_active: bool) -> None:
-        """Update the active state of a keypair owned by the current user."""
+    async def update_my_keypair(self, user_uuid: UUID, updater: Updater[KeyPairRow]) -> KeyPairData:
+        """Update a keypair owned by the current user."""
+        access_key = str(updater.pk_value)
         async with self._db.begin_session() as session:
-            kp_row = (
-                await session.scalars(
-                    sa.select(KeyPairRow)
-                    .where(KeyPairRow.access_key == access_key)
-                    .options(noload("*"))
-                )
-            ).first()
-            if not kp_row:
+            # Use a scalar-only query to avoid loading the full ORM object into the
+            # session identity map. Loading the full row here would cause execute_updater's
+            # UPDATE...RETURNING to return the stale cached object instead of the fresh
+            # post-update values.
+            user_of_keypair = await session.scalar(
+                sa.select(KeyPairRow.user).where(KeyPairRow.access_key == access_key)
+            )
+            if user_of_keypair is None:
                 raise KeyPairNotFound(f"Keypair {access_key} not found")
-            if kp_row.user != user_uuid:
+            if user_of_keypair != user_uuid:
                 raise KeyPairForbidden("Cannot update another user's keypair")
 
-            await session.execute(
-                sa.update(keypairs)
-                .where(keypairs.c.access_key == access_key)
-                .values(is_active=is_active)
-            )
+            update_result = await execute_updater(session, updater)
+            if update_result is None:
+                raise KeyPairNotFound(f"Keypair {access_key} not found after update")
+            return update_result.row.to_data()
 
     async def search_my_keypairs(
         self,
