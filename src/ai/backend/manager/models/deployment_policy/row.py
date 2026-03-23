@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 __all__ = (
     "BlueGreenSpec",
     "DeploymentPolicyRow",
+    "DeploymentStrategySpec",
     "RollingUpdateSpec",
 )
 
@@ -59,6 +60,9 @@ class BlueGreenSpec(BaseModel):
 
     auto_promote: bool = False
     promote_delay_seconds: int = 0
+
+
+DeploymentStrategySpec = RollingUpdateSpec | BlueGreenSpec
 
 
 def _get_endpoint_join_condition() -> sa.ColumnElement[bool]:
