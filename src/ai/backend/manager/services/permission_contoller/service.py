@@ -1,7 +1,17 @@
 import logging
+from collections.abc import Sequence
 
-from ai.backend.common.data.permission.types import EntityType, ScopeType
+from ai.backend.common.data.permission.types import (
+    EntityType,
+    RBACElementType,
+    ScopeType,
+)
 from ai.backend.logging.utils import BraceStyleAdapter
+from ai.backend.manager.actions.action.rbac import (
+    BaseRBACAction,
+    RBACActionName,
+    RBACRequiredPermission,
+)
 from ai.backend.manager.repositories.permission_controller.db_source.db_source import (
     CreateRoleInput,
 )
@@ -106,9 +116,15 @@ log = BraceStyleAdapter(logging.getLogger(__spec__.name))
 
 class PermissionControllerService:
     _repository: PermissionControllerRepository
+    _rbac_action_registry: Sequence[type[BaseRBACAction]]
 
-    def __init__(self, repository: PermissionControllerRepository) -> None:
+    def __init__(
+        self,
+        repository: PermissionControllerRepository,
+        rbac_action_registry: Sequence[type[BaseRBACAction]],
+    ) -> None:
         self._repository = repository
+        self._rbac_action_registry = rbac_action_registry
 
     async def create_role(self, action: CreateRoleAction) -> CreateRoleActionResult:
         """
@@ -283,3 +299,20 @@ class PermissionControllerService:
         """Search element associations (full association rows) within a scope."""
         result = await self._repository.search_element_associations(action.querier)
         return SearchElementAssociationsActionResult(result=result)
+
+    def get_entity_valid_operations(
+        self,
+    ) -> dict[RBACElementType, dict[RBACActionName, RBACRequiredPermission]]:
+        """
+        Get valid operations for all registered RBAC element types.
+
+        Aggregates required permissions from all registered action classes,
+        grouping them by element type. Each entry maps action name to its
+        required permission.
+        """
+        result: dict[RBACElementType, dict[RBACActionName, RBACRequiredPermission]] = {}
+        for action_cls in self._rbac_action_registry:
+            perm = action_cls.required_permission()
+            actions = result.setdefault(perm.element_type, {})
+            actions[action_cls.action_name()] = perm
+        return result
