@@ -4,14 +4,14 @@ import uuid
 from collections.abc import Mapping
 from typing import cast
 
-from ai.backend.common.data.permission.types import GLOBAL_SCOPE_ID, OperationType
+from ai.backend.common.data.permission.types import OperationType, RBACElementType
 from ai.backend.common.exception import BackendAIError
 from ai.backend.common.metrics.metric import DomainType, LayerType
 from ai.backend.common.resilience.policies.metrics import MetricArgs, MetricPolicy
 from ai.backend.common.resilience.policies.retry import BackoffStrategy, RetryArgs, RetryPolicy
 from ai.backend.common.resilience.resilience import Resilience
 from ai.backend.manager.data.permission.entity import ElementAssociationListResult, EntityListResult
-from ai.backend.manager.data.permission.id import ObjectId, ScopeId
+from ai.backend.manager.data.permission.id import ObjectId
 from ai.backend.manager.data.permission.object_permission import (
     ObjectPermissionData,
     ObjectPermissionListResult,
@@ -40,9 +40,7 @@ from ai.backend.manager.data.permission.role import (
 )
 from ai.backend.manager.data.permission.types import (
     RBACElementRef,
-    ScopeData,
     ScopeListResult,
-    ScopeType,
 )
 from ai.backend.manager.models.rbac_models.permission.object_permission import ObjectPermissionRow
 from ai.backend.manager.models.rbac_models.permission.permission import PermissionRow
@@ -303,43 +301,27 @@ class PermissionControllerRepository:
             querier=querier,
         )
 
-    def _get_global_scope(self) -> ScopeListResult:
-        """Get the global scope as a static result."""
-        return ScopeListResult(
-            items=[
-                ScopeData(
-                    id=ScopeId(scope_type=ScopeType.GLOBAL, scope_id=GLOBAL_SCOPE_ID),
-                    name=GLOBAL_SCOPE_ID,
-                )
-            ],
-            total_count=1,
-            has_next_page=False,
-            has_previous_page=False,
-        )
-
     @permission_controller_repository_resilience.apply()
     async def search_scopes(
         self,
-        scope_type: ScopeType,
+        element_type: RBACElementType,
         querier: BatchQuerier,
     ) -> ScopeListResult:
-        """Search scopes based on scope type.
+        """Search scopes based on element type.
 
         Args:
-            scope_type: The type of scope to search.
+            element_type: The RBAC element type of scope to search.
             querier: BatchQuerier with conditions, orders, and pagination.
 
         Returns:
             ScopeListResult with matching scopes.
         """
-        match scope_type:
-            case ScopeType.GLOBAL:
-                return self._get_global_scope()
-            case ScopeType.DOMAIN:
+        match element_type:
+            case RBACElementType.DOMAIN:
                 return await self._db_source.search_domain_scopes(querier)
-            case ScopeType.PROJECT:
+            case RBACElementType.PROJECT:
                 return await self._db_source.search_project_scopes(querier)
-            case ScopeType.USER:
+            case RBACElementType.USER:
                 return await self._db_source.search_user_scopes(querier)
             case _:
                 raise NotImplementedError(
