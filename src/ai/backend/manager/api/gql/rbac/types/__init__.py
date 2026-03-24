@@ -18,6 +18,7 @@ from .permission import (
     PermissionEdge,
     PermissionFilter,
     PermissionGQL,
+    PermissionNestedFilterGQL,
     PermissionOrderBy,
     PermissionOrderField,
     RBACElementTypeGQL,
@@ -83,6 +84,7 @@ __all__ = [
     "RoleFilter",
     "RoleAssignmentFilter",
     "RoleAssignmentRoleNestedFilterGQL",
+    "PermissionNestedFilterGQL",
     "EntityFilter",
     # OrderBy
     "PermissionOrderBy",
