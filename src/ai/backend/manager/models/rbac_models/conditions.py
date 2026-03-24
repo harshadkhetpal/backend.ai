@@ -10,7 +10,12 @@ import sqlalchemy as sa
 from ai.backend.common.data.filter_specs import StringMatchSpec
 from ai.backend.manager.data.permission.id import ObjectId
 from ai.backend.manager.data.permission.status import RoleStatus
-from ai.backend.manager.data.permission.types import EntityType, RoleSource, ScopeType
+from ai.backend.manager.data.permission.types import (
+    EntityType,
+    OperationType,
+    RoleSource,
+    ScopeType,
+)
 from ai.backend.manager.models.domain.row import DomainRow
 from ai.backend.manager.models.group.row import GroupRow
 from ai.backend.manager.models.rbac_models.association_scopes_entities import (
@@ -185,6 +190,38 @@ class RoleConditions:
     def by_ids(role_ids: Collection[uuid.UUID]) -> QueryCondition:
         def inner() -> sa.sql.expression.ColumnElement[bool]:
             return RoleRow.id.in_(role_ids)
+
+        return inner
+
+
+class PermissionConditions:
+    """Query conditions for permissions."""
+
+    @staticmethod
+    def by_scope_id(scope_id: str) -> QueryCondition:
+        def inner() -> sa.sql.expression.ColumnElement[bool]:
+            return PermissionRow.scope_id == scope_id
+
+        return inner
+
+    @staticmethod
+    def by_scope_types(scope_types: list[ScopeType]) -> QueryCondition:
+        def inner() -> sa.sql.expression.ColumnElement[bool]:
+            return PermissionRow.scope_type.in_(scope_types)
+
+        return inner
+
+    @staticmethod
+    def by_entity_types(entity_types: list[EntityType]) -> QueryCondition:
+        def inner() -> sa.sql.expression.ColumnElement[bool]:
+            return PermissionRow.entity_type.in_(entity_types)
+
+        return inner
+
+    @staticmethod
+    def by_operations(operations: list[OperationType]) -> QueryCondition:
+        def inner() -> sa.sql.expression.ColumnElement[bool]:
+            return PermissionRow.operation.in_(operations)
 
         return inner
 
@@ -390,6 +427,22 @@ class AssignedUserConditions:
                 .correlate(UserRoleRow)
             )
             for cond in user_conditions:
+                subq = subq.where(cond())
+            return sa.exists(subq)
+
+        return inner
+
+    @staticmethod
+    def exists_permission_combined(permission_conditions: list[QueryCondition]) -> QueryCondition:
+        """Combine multiple permission conditions into single EXISTS subquery."""
+
+        def inner() -> sa.sql.expression.ColumnElement[bool]:
+            subq = (
+                sa.select(sa.literal(1))
+                .where(PermissionRow.role_id == UserRoleRow.role_id)
+                .correlate(UserRoleRow)
+            )
+            for cond in permission_conditions:
                 subq = subq.where(cond())
             return sa.exists(subq)
 
