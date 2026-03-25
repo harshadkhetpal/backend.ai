@@ -566,6 +566,7 @@ class DeploymentService:
             execution=revision_creator.execution.model_copy(
                 update={"environ": merged_environ},
             ),
+            model_definition=revision_creator.model_definition,
         )
 
     async def _build_revision(
@@ -596,8 +597,9 @@ class DeploymentService:
             model_id=merged_creator.mounts.model_vfolder_id,
             model_mount_destination=merged_creator.mounts.model_mount_destination,
             model_definition_path=merged_creator.mounts.model_definition_path,
-            # TODO: model_definition is always hardcoded to None. Should be propagated from input or loaded from service-definition.
-            model_definition=None,
+            model_definition=merged_creator.model_definition.model_dump(
+                exclude_none=True, by_alias=True
+            ),
             startup_command=merged_creator.execution.startup_command,
             bootstrap_script=merged_creator.execution.bootstrap_script,
             # TODO: None and {} have different semantics (not provided vs empty environ). CreatorSpec should accept Optional.
