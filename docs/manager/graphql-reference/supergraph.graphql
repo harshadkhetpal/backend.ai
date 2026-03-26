@@ -8541,6 +8541,7 @@ type Permission implements Node
   scopeId: String!
   entityType: RBACElementType!
   operation: OperationType!
+  createdAt: DateTime!
 
   """The role this permission belongs to."""
   role: Role
@@ -8579,6 +8580,7 @@ input PermissionFilter
   roleId: UUID = null
   scopeType: RBACElementType = null
   entityType: RBACElementType = null
+  createdAt: DateTimeFilter = null
   AND: [PermissionFilter!] = null
   OR: [PermissionFilter!] = null
   NOT: [PermissionFilter!] = null
@@ -8613,6 +8615,7 @@ enum PermissionOrderField
 {
   ID @join__enumValue(graph: STRAWBERRY)
   ENTITY_TYPE @join__enumValue(graph: STRAWBERRY)
+  CREATED_AT @join__enumValue(graph: STRAWBERRY)
 }
 
 type PredefinedAtomicPermission

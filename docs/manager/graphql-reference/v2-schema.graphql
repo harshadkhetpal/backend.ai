@@ -4743,6 +4743,7 @@ type Permission implements Node {
   scopeId: String!
   entityType: RBACElementType!
   operation: OperationType!
+  createdAt: DateTime!
 
   """The role this permission belongs to."""
   role: Role
@@ -4775,6 +4776,7 @@ input PermissionFilter {
   roleId: UUID = null
   scopeType: RBACElementType = null
   entityType: RBACElementType = null
+  createdAt: DateTimeFilter = null
   AND: [PermissionFilter!] = null
   OR: [PermissionFilter!] = null
   NOT: [PermissionFilter!] = null
@@ -4803,6 +4805,7 @@ input PermissionOrderBy {
 enum PermissionOrderField {
   ID
   ENTITY_TYPE
+  CREATED_AT
 }
 
 """
