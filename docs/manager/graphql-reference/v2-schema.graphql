@@ -122,6 +122,20 @@ type AddRevisionPayload {
   revision: ModelRevision!
 }
 
+"""
+Added in UNRELEASED. Input for admin querying effective assignable resources for a specific user.
+"""
+input AdminEffectiveResourceAllocationV2Input {
+  """Target user ID."""
+  userId: UUID!
+
+  """Project ID to check allocation for."""
+  projectId: UUID!
+
+  """Resource group name to check allocation for."""
+  resourceGroupName: String!
+}
+
 """Added in 26.1.0. Filter options for querying agents"""
 input AgentFilter {
   id: StringFilter = null
@@ -1285,6 +1299,25 @@ type CancelImportArtifactPayload {
 }
 
 """
+Added in UNRELEASED. Payload containing preset availability check results.
+"""
+type CheckPresetAvailabilityPayloadV2 {
+  """Resource presets with availability status."""
+  presets: [PresetAvailabilityV2!]!
+}
+
+"""
+Added in UNRELEASED. Input for checking which resource presets are available.
+"""
+input CheckPresetAvailabilityV2Input {
+  """Project ID to check availability for."""
+  projectId: UUID!
+
+  """Resource group name to check availability for."""
+  resourceGroupName: String!
+}
+
+"""
 Added in 24.09.0. Input for cleaning up stored artifact revision data.
 
 Removes downloaded files from storage and transitions the artifact revision
@@ -1708,8 +1741,8 @@ input CreateProjectResourcePolicyInputGQL {
   """Maximum vfolders a project can have."""
   maxVfolderCount: Int!
 
-  """Maximum quota scope size in bytes."""
-  maxQuotaScopeSize: Int!
+  """Maximum quota scope size (e.g., '1g', '536870912')."""
+  maxQuotaScopeSize: BinarySizeInput!
 
   """Maximum networks a project can create. -1 means unlimited."""
   maxNetworkCount: Int!
@@ -1834,8 +1867,8 @@ input CreateUserResourcePolicyInputGQL {
   """Maximum vfolders a user can create."""
   maxVfolderCount: Int!
 
-  """Maximum quota scope size in bytes."""
-  maxQuotaScopeSize: Int!
+  """Maximum quota scope size (e.g., '1g', '536870912')."""
+  maxQuotaScopeSize: BinarySizeInput!
 
   """Maximum sessions per model session."""
   maxSessionCountPerModelSession: Int!
@@ -2619,6 +2652,12 @@ type DomainRegistryInfo {
   allowedDockerRegistries: [String!]!
 }
 
+"""Added in UNRELEASED. Payload for domain resource allocation query."""
+type DomainResourceAllocationV2 {
+  """Domain resource usage."""
+  domain: ScopeResourceUsageV2!
+}
+
 """
 Added in 26.1.0. Domain-level usage bucket representing aggregated resource consumption for a specific time period. Usage buckets store historical data used to calculate fair share factors.
 """
@@ -2869,6 +2908,45 @@ input DomainWeightInputItem {
   Priority weight multiplier. Higher weight = higher priority allocation ratio. Set to null to use resource group's default_weight.
   """
   weight: Decimal = null
+}
+
+"""Added in UNRELEASED. Breakdown of resource allocation by scope."""
+type EffectiveBreakdownV2 {
+  """Keypair resource policy limits."""
+  keypair: ScopeResourceUsageV2!
+
+  """
+  Project resource limits. Null when group_resource_visibility is disabled.
+  """
+  project: ScopeResourceUsageV2
+
+  """Domain resource limits."""
+  domain: ScopeResourceUsageV2!
+
+  """Resource group physical resources. Null when hide_agents is enabled."""
+  resourceGroup: ResourceGroupUsageV2
+}
+
+"""
+Added in UNRELEASED. Effective assignable resources considering all scope constraints.
+"""
+type EffectiveResourceAllocationV2 {
+  """Effective assignable resources (minimum across all scopes)."""
+  assignable: [ResourceLimitEntry!]!
+
+  """Per-scope breakdown of resource limits and usage."""
+  breakdown: EffectiveBreakdownV2!
+}
+
+"""
+Added in UNRELEASED. Input for querying effective assignable resources.
+"""
+input EffectiveResourceAllocationV2Input {
+  """Project ID to check allocation for."""
+  projectId: UUID!
+
+  """Resource group name to check allocation for."""
+  resourceGroupName: String!
 }
 
 """Added in 24.09.0. Input for email message settings"""
@@ -3892,6 +3970,12 @@ enum KeypairOrderField {
   RESOURCE_POLICY
 }
 
+"""Added in UNRELEASED. Payload for keypair resource allocation query."""
+type KeypairResourceAllocationV2 {
+  """Keypair resource usage."""
+  keypair: ScopeResourceUsageV2!
+}
+
 """
 Added in UNRELEASED. Keypair resource policy defining session and storage limits for API keypairs.
 """
@@ -3911,7 +3995,7 @@ type KeypairResourcePolicyV2 implements Node {
   defaultForUnspecified: String!
 
   """Total resource slot limits for sessions."""
-  totalResourceSlots: [ResourceSlotEntry!]!
+  totalResourceSlots: [ResourceLimitEntry!]!
 
   """Maximum session lifetime in seconds."""
   maxSessionLifetime: Int!
@@ -3923,7 +4007,7 @@ type KeypairResourcePolicyV2 implements Node {
   maxPendingSessionCount: Int
 
   """Maximum resource slots for pending sessions. Null means unlimited."""
-  maxPendingSessionResourceSlots: [ResourceSlotEntry!]
+  maxPendingSessionResourceSlots: [ResourceLimitEntry!]
 
   """Maximum concurrent SFTP sessions allowed."""
   maxConcurrentSftpSessions: Int!
@@ -5564,6 +5648,27 @@ enum PreemptionOrder {
   NEWEST
 }
 
+"""Added in UNRELEASED. A resource preset with its availability status."""
+type PresetAvailabilityV2 {
+  """Resource preset UUID."""
+  id: String!
+
+  """Resource preset name."""
+  name: String!
+
+  """Resource slot allocations."""
+  resourceSlots: [ResourceSlotEntry!]!
+
+  """Shared memory size."""
+  sharedMemory: BinarySizeInfo
+
+  """Resource group name. Null means global preset."""
+  resourceGroupName: String
+
+  """Whether this preset can be used for session creation."""
+  available: Boolean!
+}
+
 """
 Added in 26.2.0. Basic project information. Contains identity and descriptive fields for the project.
 """
@@ -5799,6 +5904,12 @@ type ProjectPayloadGQL {
   project: ProjectV2!
 }
 
+"""Added in UNRELEASED. Payload for project resource allocation query."""
+type ProjectResourceAllocationV2 {
+  """Project resource usage."""
+  project: ScopeResourceUsageV2!
+}
+
 """
 Added in UNRELEASED. Project resource policy defining vfolder, quota, and network limits per project.
 """
@@ -5815,8 +5926,8 @@ type ProjectResourcePolicyV2 implements Node {
   """Maximum vfolders a project can have."""
   maxVfolderCount: Int!
 
-  """Maximum quota scope size in bytes."""
-  maxQuotaScopeSize: Int!
+  """Maximum quota scope size."""
+  maxQuotaScopeSize: BinarySizeInfo!
 
   """Maximum networks a project can create. -1 means unlimited."""
   maxNetworkCount: Int!
@@ -6764,6 +6875,35 @@ type Query {
 
   """Added in UNRELEASED. Get a single resource preset by ID (admin only)."""
   adminResourcePresetV2(id: UUID!): ResourcePresetV2
+
+  """
+  Added in UNRELEASED. Get my keypair resource allocation (current user).
+  """
+  myKeypairResourceAllocationV2: KeypairResourceAllocationV2!
+
+  """Added in UNRELEASED. Get project resource allocation (project usage)."""
+  projectResourceAllocationV2(projectId: UUID!): ProjectResourceAllocationV2!
+
+  """Added in UNRELEASED. Get domain resource allocation (admin only)."""
+  adminDomainResourceAllocationV2(domainName: String!): DomainResourceAllocationV2!
+
+  """Added in UNRELEASED. Get resource group resource allocation."""
+  resourceGroupResourceAllocationV2(resourceGroupName: String!): ResourceGroupResourceAllocationV2!
+
+  """
+  Added in UNRELEASED. Get effective resource allocation for the current user.
+  """
+  effectiveResourceAllocationV2(input: EffectiveResourceAllocationV2Input!): EffectiveResourceAllocationV2!
+
+  """
+  Added in UNRELEASED. Get effective resource allocation for a specific user (admin only).
+  """
+  adminEffectiveResourceAllocationV2(input: AdminEffectiveResourceAllocationV2Input!): EffectiveResourceAllocationV2!
+
+  """
+  Added in UNRELEASED. Check which resource presets are available for session creation.
+  """
+  checkPresetAvailabilityV2(input: CheckPresetAvailabilityV2Input!): CheckPresetAvailabilityPayloadV2!
 }
 
 """
@@ -7320,6 +7460,14 @@ input ResourceGroupProjectScope {
   domainName: String!
 }
 
+"""
+Added in UNRELEASED. Payload for resource group resource allocation query.
+"""
+type ResourceGroupResourceAllocationV2 {
+  """Resource group resource usage."""
+  resourceGroup: ResourceGroupUsageV2!
+}
+
 """Added in 26.2.0. Scheduler configuration for a resource group."""
 type ResourceGroupSchedulerConfig {
   """
@@ -7338,6 +7486,23 @@ type ResourceGroupStatus {
 
   """Whether the resource group is publicly accessible to all users."""
   isPublic: Boolean!
+}
+
+"""
+Added in UNRELEASED. Resource usage for a resource group (agent-level physical resources).
+"""
+type ResourceGroupUsageV2 {
+  """Total agent capacity."""
+  capacity: [ResourceSlotEntry!]!
+
+  """Currently occupied by sessions."""
+  used: [ResourceSlotEntry!]!
+
+  """Free resources (capacity - used)."""
+  free: [ResourceSlotEntry!]!
+
+  """Largest single-agent free resources."""
+  maxPerNode: [ResourceSlotEntry!]!
 }
 
 """
@@ -7366,6 +7531,18 @@ type ResourceInfo {
 
   """Available resources (capacity - used)"""
   free: ResourceSlot!
+}
+
+"""Added in UNRELEASED. A resource limit entry that may be unlimited."""
+type ResourceLimitEntry {
+  """Resource type identifier (e.g., cpu, mem, cuda.shares)"""
+  resourceType: String!
+
+  """Limit quantity. Null when unlimited."""
+  quantity: Decimal
+
+  """Whether this resource type has no limit."""
+  unlimited: Boolean!
 }
 
 """
@@ -8155,6 +8332,20 @@ type ScopeEntityCombination {
 
   """Valid entity types for this scope type"""
   validEntityTypes: [RBACElementType!]!
+}
+
+"""
+Added in UNRELEASED. Resource usage for a single scope (keypair, project, domain).
+"""
+type ScopeResourceUsageV2 {
+  """Policy-defined resource limits."""
+  limits: [ResourceLimitEntry!]!
+
+  """Currently occupied resources."""
+  used: [ResourceSlotEntry!]!
+
+  """Assignable resources within policy limits (limits - used)."""
+  assignable: [ResourceLimitEntry!]!
 }
 
 """Added in 26.3.0. A registered service instance in the catalog."""
@@ -9176,7 +9367,7 @@ input UpdateProjectResourcePolicyInputGQL {
   maxVfolderCount: Int = null
 
   """Updated max quota scope size."""
-  maxQuotaScopeSize: Int = null
+  maxQuotaScopeSize: BinarySizeInput = null
 
   """Updated max network count."""
   maxNetworkCount: Int = null
@@ -9346,7 +9537,7 @@ input UpdateUserResourcePolicyInputGQL {
   maxVfolderCount: Int = null
 
   """Updated max quota scope size."""
-  maxQuotaScopeSize: Int = null
+  maxQuotaScopeSize: BinarySizeInput = null
 
   """Updated max sessions per model session."""
   maxSessionCountPerModelSession: Int = null
@@ -9783,8 +9974,8 @@ type UserResourcePolicyV2 implements Node {
   """Maximum vfolders a user can create."""
   maxVfolderCount: Int!
 
-  """Maximum quota scope size in bytes."""
-  maxQuotaScopeSize: Int!
+  """Maximum quota scope size."""
+  maxQuotaScopeSize: BinarySizeInfo!
 
   """Maximum sessions per model session."""
   maxSessionCountPerModelSession: Int!

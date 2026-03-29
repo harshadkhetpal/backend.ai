@@ -11,6 +11,9 @@ from typing import Any
 from ai.backend.common.api_handlers import Sentinel
 from ai.backend.common.contexts.user import current_user
 from ai.backend.common.dto.manager.v2.common import (
+    BinarySizeInfo,
+    BinarySizeInput,
+    ResourceLimitEntryInfo,
     ResourceSlotEntryInfo,
     ResourceSlotEntryInput,
     VFolderHostPermissionEntryInfo,
@@ -60,7 +63,7 @@ from ai.backend.common.dto.manager.v2.resource_policy.types import (
     UserResourcePolicyOrderField,
 )
 from ai.backend.common.exception import UnreachableError
-from ai.backend.common.types import ResourceSlot, VFolderHostPermission
+from ai.backend.common.types import BinarySize, ResourceSlot, VFolderHostPermission
 from ai.backend.manager.api.adapters.pagination import PaginationSpec
 from ai.backend.manager.data.resource.types import (
     KeyPairResourcePolicyData,
@@ -157,6 +160,17 @@ from ai.backend.manager.services.user_resource_policy.actions.search_user_resour
 from ai.backend.manager.types import OptionalState, TriState
 
 from .base import BaseAdapter
+
+
+def _humanize_bytes(value: int) -> str:
+    """Convert bytes integer to human-readable string (e.g., 1073741824 -> '1g')."""
+    return f"{BinarySize(value):s}"
+
+
+def _to_binary_size_info(value: int) -> BinarySizeInfo:
+    """Convert bytes integer to BinarySizeInfo DTO."""
+    return BinarySizeInfo(value=value, display=_humanize_bytes(value))
+
 
 _KEYPAIR_RP_PAGINATION_SPEC = PaginationSpec(
     forward_order=KeypairResourcePolicyOrders.created_at(ascending=False),
@@ -384,7 +398,7 @@ class ResourcePolicyAdapter(BaseAdapter):
         spec = UserResourcePolicyCreatorSpec(
             name=input.name,
             max_vfolder_count=input.max_vfolder_count,
-            max_quota_scope_size=input.max_quota_scope_size,
+            max_quota_scope_size=input.max_quota_scope_size.bytes,
             max_session_count_per_model_session=input.max_session_count_per_model_session,
             max_customized_image_count=input.max_customized_image_count,
         )
@@ -409,8 +423,8 @@ class ResourcePolicyAdapter(BaseAdapter):
             max_quota_scope_size=(
                 OptionalState.nop()
                 if isinstance(input.max_quota_scope_size, Sentinel)
-                else OptionalState.update(input.max_quota_scope_size)
-                if input.max_quota_scope_size is not None
+                else OptionalState.update(input.max_quota_scope_size.bytes)
+                if isinstance(input.max_quota_scope_size, BinarySizeInput)
                 else OptionalState.nop()
             ),
             max_session_count_per_model_session=(
@@ -486,7 +500,7 @@ class ResourcePolicyAdapter(BaseAdapter):
         spec = ProjectResourcePolicyCreatorSpec(
             name=input.name,
             max_vfolder_count=input.max_vfolder_count,
-            max_quota_scope_size=input.max_quota_scope_size,
+            max_quota_scope_size=input.max_quota_scope_size.bytes,
             max_network_count=input.max_network_count,
         )
         result = await self._processors.project_resource_policy.create_project_resource_policy.wait_for_complete(
@@ -512,8 +526,8 @@ class ResourcePolicyAdapter(BaseAdapter):
             max_quota_scope_size=(
                 OptionalState.nop()
                 if isinstance(input.max_quota_scope_size, Sentinel)
-                else OptionalState.update(input.max_quota_scope_size)
-                if input.max_quota_scope_size is not None
+                else OptionalState.update(input.max_quota_scope_size.bytes)
+                if isinstance(input.max_quota_scope_size, BinarySizeInput)
                 else OptionalState.nop()
             ),
             max_network_count=(
@@ -561,6 +575,19 @@ class ResourcePolicyAdapter(BaseAdapter):
         return [ResourceSlotEntryInfo(resource_type=k, quantity=v) for k, v in slot.items()]
 
     @staticmethod
+    def _resource_slot_to_limit_entries(
+        slot: ResourceSlot,
+    ) -> list[ResourceLimitEntryInfo]:
+        return [
+            ResourceLimitEntryInfo(
+                resource_type=k,
+                quantity=v if v.is_finite() else None,
+                unlimited=not v.is_finite(),
+            )
+            for k, v in slot.items()
+        ]
+
+    @staticmethod
     def _entries_to_vfolder_hosts(
         entries: list[VFolderHostPermissionEntryInput],
     ) -> dict[str, Any]:
@@ -587,12 +614,12 @@ class ResourcePolicyAdapter(BaseAdapter):
             name=data.name,
             created_at=data.created_at,
             default_for_unspecified=data.default_for_unspecified,
-            total_resource_slots=cls._resource_slot_to_entries(data.total_resource_slots),
+            total_resource_slots=cls._resource_slot_to_limit_entries(data.total_resource_slots),
             max_session_lifetime=data.max_session_lifetime,
             max_concurrent_sessions=data.max_concurrent_sessions,
             max_pending_session_count=data.max_pending_session_count,
             max_pending_session_resource_slots=(
-                cls._resource_slot_to_entries(data.max_pending_session_resource_slots)
+                cls._resource_slot_to_limit_entries(data.max_pending_session_resource_slots)
                 if data.max_pending_session_resource_slots is not None
                 else None
             ),
@@ -610,7 +637,7 @@ class ResourcePolicyAdapter(BaseAdapter):
             id=data.name,
             name=data.name,
             max_vfolder_count=data.max_vfolder_count,
-            max_quota_scope_size=data.max_quota_scope_size,
+            max_quota_scope_size=_to_binary_size_info(data.max_quota_scope_size),
             max_session_count_per_model_session=data.max_session_count_per_model_session,
             max_customized_image_count=data.max_customized_image_count,
         )
@@ -623,7 +650,7 @@ class ResourcePolicyAdapter(BaseAdapter):
             id=data.name,
             name=data.name,
             max_vfolder_count=data.max_vfolder_count,
-            max_quota_scope_size=data.max_quota_scope_size,
+            max_quota_scope_size=_to_binary_size_info(data.max_quota_scope_size),
             max_network_count=data.max_network_count,
         )
 

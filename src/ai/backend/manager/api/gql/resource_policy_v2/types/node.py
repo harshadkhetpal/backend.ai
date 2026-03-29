@@ -14,7 +14,8 @@ from ai.backend.common.dto.manager.v2.resource_policy.response import (
 )
 from ai.backend.common.meta.meta import NEXT_RELEASE_VERSION
 from ai.backend.manager.api.gql.common_types import (
-    ResourceSlotEntryGQL,
+    BinarySizeInfoGQL,
+    ResourceLimitEntryGQL,
     VFolderHostPermissionEntryGQL,
 )
 from ai.backend.manager.api.gql.decorators import (
@@ -42,7 +43,7 @@ class KeypairResourcePolicyV2GQL(PydanticNodeMixin[KeypairResourcePolicyNode]):
     default_for_unspecified: str = gql_field(
         description="Default resource allocation for unspecified slots (LIMITED or UNLIMITED)."
     )
-    total_resource_slots: list[ResourceSlotEntryGQL] = gql_field(
+    total_resource_slots: list[ResourceLimitEntryGQL] = gql_field(
         description="Total resource slot limits for sessions."
     )
     max_session_lifetime: int = gql_field(description="Maximum session lifetime in seconds.")
@@ -50,7 +51,7 @@ class KeypairResourcePolicyV2GQL(PydanticNodeMixin[KeypairResourcePolicyNode]):
     max_pending_session_count: int | None = gql_field(
         description="Maximum pending sessions. Null means unlimited."
     )
-    max_pending_session_resource_slots: list[ResourceSlotEntryGQL] | None = gql_field(
+    max_pending_session_resource_slots: list[ResourceLimitEntryGQL] | None = gql_field(
         description="Maximum resource slots for pending sessions. Null means unlimited."
     )
     max_concurrent_sftp_sessions: int = gql_field(
@@ -97,7 +98,7 @@ class UserResourcePolicyV2GQL(PydanticNodeMixin[UserResourcePolicyNode]):
     name: str = gql_field(description="Policy name.")
     created_at: datetime | None = gql_field(description="Timestamp when the policy was created.")
     max_vfolder_count: int = gql_field(description="Maximum vfolders a user can create.")
-    max_quota_scope_size: int = gql_field(description="Maximum quota scope size in bytes.")
+    max_quota_scope_size: BinarySizeInfoGQL = gql_field(description="Maximum quota scope size.")
     max_session_count_per_model_session: int = gql_field(
         description="Maximum sessions per model session."
     )
@@ -138,7 +139,7 @@ class ProjectResourcePolicyV2GQL(PydanticNodeMixin[ProjectResourcePolicyNode]):
     name: str = gql_field(description="Policy name.")
     created_at: datetime | None = gql_field(description="Timestamp when the policy was created.")
     max_vfolder_count: int = gql_field(description="Maximum vfolders a project can have.")
-    max_quota_scope_size: int = gql_field(description="Maximum quota scope size in bytes.")
+    max_quota_scope_size: BinarySizeInfoGQL = gql_field(description="Maximum quota scope size.")
     max_network_count: int = gql_field(
         description="Maximum networks a project can create. -1 means unlimited."
     )
