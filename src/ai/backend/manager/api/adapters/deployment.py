@@ -524,6 +524,7 @@ class DeploymentAdapter(BaseAdapter):
             deployment=self._deployment_data_to_dto(action_result.deployment),
             previous_revision_id=action_result.previous_revision_id,
             activated_revision_id=action_result.activated_revision_id,
+            deployment_policy=self._policy_data_to_dto(action_result.deployment_policy),
         )
 
     async def delete(self, input: DeleteDeploymentInput) -> DeleteDeploymentPayload:
@@ -728,10 +729,13 @@ class DeploymentAdapter(BaseAdapter):
         match input.strategy:
             case DeploymentStrategy.ROLLING:
                 rolling = input.rolling_update
-                strategy_spec = RollingUpdateSpec(
-                    max_surge=rolling.max_surge if rolling is not None else 1,
-                    max_unavailable=rolling.max_unavailable if rolling is not None else 0,
-                )
+                if rolling is not None:
+                    strategy_spec = RollingUpdateSpec(
+                        max_surge=rolling.max_surge,
+                        max_unavailable=rolling.max_unavailable,
+                    )
+                else:
+                    strategy_spec = RollingUpdateSpec()
             case DeploymentStrategy.BLUE_GREEN:
                 bg = input.blue_green
                 strategy_spec = BlueGreenSpec(

@@ -9,6 +9,8 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
+from pydantic import BaseModel, Field, model_validator
+
 from ai.backend.common.api_handlers import BaseResponseModel
 from ai.backend.common.data.endpoint.types import EndpointLifecycle
 from ai.backend.common.data.model_deployment.types import (
@@ -57,6 +59,7 @@ __all__ = (
     "RouteStatus",
     "RouteTrafficStatus",
     "RuntimeVariant",
+    "IntOrPercent",
 )
 
 
@@ -81,6 +84,41 @@ class RouteOrderField(StrEnum):
     CREATED_AT = "created_at"
     STATUS = "status"
     TRAFFIC_RATIO = "traffic_ratio"
+
+
+class IntOrPercent(BaseModel):
+    """A rolling-update budget value: either an absolute count or a percentage.
+
+    Exactly one of ``count`` or ``percent`` must be provided (oneOf semantics).
+
+    - ``{"count": 2}``        — absolute replica count
+    - ``{"percent": 0.25}``   — fraction of desired replicas (0.0-1.0)
+    """
+
+    count: int | None = Field(default=None, ge=0)
+    percent: float | None = Field(default=None, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _validate_one_of(self) -> IntOrPercent:
+        has_count = self.count is not None
+        has_percent = self.percent is not None
+        if has_count == has_percent:
+            raise ValueError("Exactly one of 'count' or 'percent' must be provided.")
+        return self
+
+    @property
+    def is_count(self) -> bool:
+        return self.count is not None
+
+    @property
+    def is_percent(self) -> bool:
+        return self.percent is not None
+
+    @property
+    def is_zero(self) -> bool:
+        if self.count is not None:
+            return self.count == 0
+        return self.percent == 0.0
 
 
 class DeploymentBasicInfo(BaseResponseModel):
@@ -129,8 +167,8 @@ class ReplicaStateInfo(BaseResponseModel):
 class RollingUpdateConfigInfo(BaseResponseModel):
     """Rolling update policy configuration."""
 
-    max_surge: int
-    max_unavailable: int
+    max_surge: IntOrPercent
+    max_unavailable: IntOrPercent
 
 
 class BlueGreenConfigInfo(BaseResponseModel):
@@ -162,8 +200,8 @@ class DeploymentStrategySpecInfo(BaseResponseModel):
 class RollingUpdateStrategySpecInfo(DeploymentStrategySpecInfo):
     """Rolling update strategy spec — matches RollingUpdateStrategySpecGQL structure."""
 
-    max_surge: int
-    max_unavailable: int
+    max_surge: IntOrPercent
+    max_unavailable: IntOrPercent
 
 
 class BlueGreenStrategySpecInfo(DeploymentStrategySpecInfo):

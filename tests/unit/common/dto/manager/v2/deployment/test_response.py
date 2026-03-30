@@ -34,6 +34,7 @@ from ai.backend.common.dto.manager.v2.deployment.types import (
     DeploymentPolicyInfo,
     DeploymentStrategyInfoDTO,
     ExtraVFolderMountGQLDTO,
+    IntOrPercent,
     ModelMountConfigInfoDTO,
     ModelRuntimeConfigInfoDTO,
     ReplicaStateInfo,
@@ -271,7 +272,10 @@ class TestDeploymentNode:
         assert node.revision.name == "v1"
 
     def test_with_rolling_policy(self) -> None:
-        rolling = RollingUpdateConfigInfo(max_surge=1, max_unavailable=0)
+        rolling = RollingUpdateConfigInfo(
+            max_surge=IntOrPercent(count=1),
+            max_unavailable=IntOrPercent(count=0),
+        )
         policy = DeploymentPolicyInfo(
             strategy=DeploymentStrategy.ROLLING,
             rolling_update=rolling,

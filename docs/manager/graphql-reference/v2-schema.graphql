@@ -78,6 +78,9 @@ type ActivateRevisionPayload {
 
   """ID of the newly activated revision"""
   activatedRevisionId: ID!
+
+  """The deployment policy applied during activation"""
+  deploymentPolicy: DeploymentPolicy!
 }
 
 """
@@ -3640,6 +3643,15 @@ input IntFilter {
 }
 
 """
+Added in UNRELEASED. Input for a rolling-update budget value (oneOf).
+Provide exactly one of 'count' (absolute replica count) or 'percent' (0.0-1.0 fraction).
+"""
+input IntOrPercentInput @oneOf {
+  count: Int
+  percent: Float
+}
+
+"""
 Added in 26.2.0. Payload returned after issuing a new keypair. The secret_key is only shown once.
 """
 type IssueMyKeypairPayload {
@@ -4846,7 +4858,7 @@ type Mutation {
   addModelRevision(input: AddRevisionInput!): AddRevisionPayload!
 
   """
-  Added in 26.4.0. Create or update the deployment policy for a given deployment (upsert semantics). If the deployment already has a policy, it is replaced entirely with the new configuration
+  Added in UNRELEASED. Create or update the deployment policy for a given deployment (upsert semantics). If the deployment already has a policy, it is replaced entirely with the new configuration
   """
   updateDeploymentPolicy(input: UpdateDeploymentPolicyInput!): UpdateDeploymentPolicyPayload!
 
@@ -8112,10 +8124,12 @@ input RoleStatusFilter {
   notIn: [RoleStatus!] = null
 }
 
-"""Added in 25.19.0. Configuration for rolling update strategy."""
+"""
+Added in 25.19.0. Configuration for rolling update strategy. Defaults: max_surge=50%, max_unavailable=0%.
+"""
 input RollingUpdateConfigInput {
-  maxSurge: Int! = 1
-  maxUnavailable: Int! = 0
+  maxSurge: IntOrPercentInput
+  maxUnavailable: IntOrPercentInput
 }
 
 """Added in 25.19.0. Represents a route for a model deployment."""
@@ -9253,7 +9267,7 @@ type UpdateDeploymentPayload {
 }
 
 """
-Added in 26.4.0. Input for creating or updating a deployment policy (upsert semantics).
+Added in UNRELEASED. Input for creating or updating a deployment policy (upsert semantics).
 Specify the target deployment_id and the desired strategy type.
 Exactly one of rolling_update or blue_green must be provided,
 matching the chosen strategy type.
@@ -9267,7 +9281,7 @@ input UpdateDeploymentPolicyInput {
 }
 
 """
-Added in 26.4.0. Result payload returned after creating or updating a deployment policy. Contains the full deployment_policy object reflecting the applied configuration.
+Added in UNRELEASED. Result payload returned after creating or updating a deployment policy. Contains the full deployment_policy object reflecting the applied configuration.
 """
 type UpdateDeploymentPolicyPayload {
   """The updated deployment policy"""

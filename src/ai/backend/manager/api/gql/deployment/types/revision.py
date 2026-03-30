@@ -128,6 +128,7 @@ from ai.backend.manager.api.gql_legacy.vfolder import VirtualFolderNode
 
 if TYPE_CHECKING:
     from .deployment import ModelDeployment
+    from .policy import DeploymentPolicyGQL
 
 MountPermission: type[CommonMountPermission] = gql_enum(
     BackendAIGQLMeta(
@@ -386,6 +387,7 @@ class ActivateRevisionPayloadGQL:
     deployment: Annotated[ModelDeployment, strawberry.lazy(".deployment")]
     previous_revision_id: ID | None
     activated_revision_id: ID
+    deployment_policy: Annotated[DeploymentPolicyGQL, strawberry.lazy(".policy")]
 
 
 # Input Types
