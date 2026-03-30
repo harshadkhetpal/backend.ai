@@ -13,9 +13,11 @@ from pydantic import BaseModel, Field
 from ai.backend.common.api_handlers import BaseResponseModel
 from ai.backend.common.dto.manager.pagination import PaginationInfo
 from ai.backend.common.dto.manager.v2.group.types import ProjectType
+from ai.backend.common.dto.manager.v2.user.response import UserNode
 
 __all__ = (
     "AdminSearchGroupsPayload",
+    "AssignUsersToProjectPayload",
     "DeleteProjectPayload",
     "ProjectBasicInfo",
     "ProjectLifecycleInfo",
@@ -158,6 +160,12 @@ class PurgeProjectPayload(BaseResponseModel):
     purged: bool = Field(
         description="Whether the purge was successful.",
     )
+
+
+class AssignUsersToProjectPayload(BaseResponseModel):
+    """Payload for assign users to project response."""
+
+    items: list[UserNode] = Field(description="List of users actually assigned.")
 
 
 class AdminSearchGroupsPayload(BaseResponseModel):
