@@ -18,6 +18,7 @@ from ai.backend.common.dto.manager.v2.vfolder.request import (
     PurgeVFolderInput,
     RenameFileInput,
     RestoreVFolderInput,
+    SearchVFoldersInput,
     ShareVFolderInput,
     UnshareVFolderInput,
     UpdateVFolderInput,
@@ -37,6 +38,7 @@ from ai.backend.common.dto.manager.v2.vfolder.response import (
     MkdirPayload,
     PurgeVFolderPayload,
     RestoreVFolderPayload,
+    SearchVFoldersPayload,
     ShareVFolderPayload,
     UnshareVFolderPayload,
     UpdateVFolderPayload,
@@ -77,6 +79,7 @@ __all__ = (
     "VFolderUsageModeFilter",
     # Input models (request)
     "AcceptInvitationInput",
+    "SearchVFoldersInput",
     "CloneVFolderInput",
     "CreateDownloadSessionInput",
     "CreateUploadSessionInput",
@@ -97,6 +100,7 @@ __all__ = (
     "VFolderFilter",
     "VFolderOrder",
     # Node and Payload models (response)
+    "SearchVFoldersPayload",
     "CloneVFolderPayload",
     "CreateDownloadSessionPayload",
     "CreateUploadSessionPayload",

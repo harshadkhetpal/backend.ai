@@ -23,6 +23,7 @@ from .types import (
 
 __all__ = (
     "AcceptInvitationInput",
+    "SearchVFoldersInput",
     "CloneVFolderInput",
     "CreateDownloadSessionInput",
     "CreateUploadSessionInput",
@@ -271,3 +272,16 @@ class VFolderOrder(BaseRequestModel):
 
     field: VFolderOrderField
     direction: OrderDirection
+
+
+class SearchVFoldersInput(BaseRequestModel):
+    """Input for vfolder search with cursor and offset pagination (shared by admin and scoped searches)."""
+
+    filter: VFolderFilter | None = Field(default=None, description="Filter conditions.")
+    order: list[VFolderOrder] | None = Field(default=None, description="Order specifications.")
+    first: int | None = Field(default=None, description="Cursor pagination: number of items.")
+    after: str | None = Field(default=None, description="Cursor pagination: after cursor.")
+    last: int | None = Field(default=None, description="Cursor pagination: last N items.")
+    before: str | None = Field(default=None, description="Cursor pagination: before cursor.")
+    limit: int | None = Field(default=None, description="Offset pagination: maximum items.")
+    offset: int | None = Field(default=None, description="Offset pagination: number to skip.")
