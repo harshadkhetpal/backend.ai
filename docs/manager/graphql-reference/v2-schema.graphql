@@ -7135,6 +7135,9 @@ type Query {
   Added in UNRELEASED. Check which resource presets are available for session creation.
   """
   checkPresetAvailabilityV2(input: CheckPresetAvailabilityV2Input!): CheckPresetAvailabilityPayloadV2!
+
+  """Added in UNRELEASED. List virtual folders within a specific project."""
+  projectVfolders(projectId: UUID!, before: String = null, after: String = null, first: Int = null, last: Int = null, limit: Int = null, offset: Int = null): VFolderConnection!
 }
 
 """
@@ -10711,6 +10714,75 @@ type VFSStorageEdge {
 }
 
 """
+Added in UNRELEASED. Virtual folder entity with structured field groups. Provides comprehensive vfolder information organized into logical categories: metadata (descriptive), permission (access control), and usage (storage statistics). Owner and creator are resolved as Node references.
+"""
+type VFolder implements Node {
+  """The Globally Unique ID of this object"""
+  id: ID!
+
+  """
+  Current operation status. READY, CLONING, DELETE_PENDING, DELETE_ONGOING, DELETE_COMPLETE, or DELETE_ERROR.
+  """
+  status: VFolderOperationStatus!
+
+  """Storage host where the virtual folder is physically located."""
+  host: String!
+
+  """
+  Descriptive metadata including name, usage mode, quota scope, timestamps, and clone eligibility.
+  """
+  metadata: VFolderMetadataInfo!
+
+  """Access control including permission level and ownership type."""
+  accessControl: VFolderAccessControlInfo!
+
+  """Path for unmanaged virtual folders."""
+  unmanagedPath: String
+
+  """The user who owns this virtual folder. Null for project-owned folders."""
+  ownerUser: UserV2
+
+  """
+  The project that owns this virtual folder. Null for user-owned folders.
+  """
+  ownerProject: ProjectV2
+
+  """The user who originally created this virtual folder."""
+  creator: UserV2
+}
+
+"""
+Added in UNRELEASED. Access control information for a virtual folder. Includes the mount permission level (read-only, read-write, read-write-delete) and ownership type (user or project).
+"""
+type VFolderAccessControlInfo {
+  permission: VFolderMountPermission!
+  ownershipType: VFolderOwnershipType!
+}
+
+"""
+Added in UNRELEASED. Paginated connection for virtual folder records. Provides relay-style cursor-based pagination for efficient traversal of vfolder data. Use 'edges' to access individual records with cursor information, or 'nodes' for direct data access.
+"""
+type VFolderConnection {
+  """Pagination data for this connection"""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection"""
+  edges: [VFolderEdge!]!
+
+  """Total number of virtual folder records matching the query criteria."""
+  count: Int!
+}
+
+"""An edge in a connection."""
+type VFolderEdge {
+  """A cursor for use in pagination"""
+  cursor: String!
+
+  """The item at the end of the edge"""
+  node: VFolder!
+}
+
+"""
 Added in 26.2.0. Storage host permission configuration. Defines what operations are allowed for a specific storage host.
 """
 type VFolderHostPermissionEntry {
@@ -10742,6 +10814,52 @@ enum VFolderHostPermissionV2 {
   DOWNLOAD_FILE
   INVITE_OTHERS
   SET_USER_PERM
+}
+
+"""
+Added in UNRELEASED. Descriptive metadata for a virtual folder. Includes the folder name, usage mode, quota scope, timestamps, and clone eligibility.
+"""
+type VFolderMetadataInfo {
+  name: String!
+  usageMode: VFolderUsageMode!
+  quotaScopeId: String
+  createdAt: DateTime!
+  lastUsed: DateTime
+  cloneable: Boolean!
+}
+
+"""Added in UNRELEASED. Mount permission level for a virtual folder."""
+enum VFolderMountPermission {
+  READ_ONLY
+  READ_WRITE
+  RW_DELETE
+}
+
+"""Added in UNRELEASED. Operation status of a virtual folder."""
+enum VFolderOperationStatus {
+  READY
+  CLONING
+  DELETE_PENDING
+  DELETE_ONGOING
+  DELETE_COMPLETE
+  DELETE_ERROR
+}
+
+"""
+Added in UNRELEASED. Ownership type of a virtual folder (USER or GROUP).
+"""
+enum VFolderOwnershipType {
+  USER
+  GROUP
+}
+
+"""
+Added in UNRELEASED. Usage mode of a virtual folder (GENERAL, MODEL, DATA).
+"""
+enum VFolderUsageMode {
+  GENERAL
+  MODEL
+  DATA
 }
 
 """Added in 24.09.0. Input for validate notification channel mutation"""

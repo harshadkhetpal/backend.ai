@@ -8,14 +8,14 @@ from uuid import uuid4
 from ai.backend.common.dto.manager.v2.common import BinarySizeInfo
 from ai.backend.common.dto.manager.v2.vfolder.types import (
     OrderDirection,
-    VFolderBasicInfo,
+    VFolderAccessControlInfo,
     VFolderInvitationState,
+    VFolderMetadataInfo,
     VFolderOperationStatusField,
     VFolderOrderField,
     VFolderOwnerInfo,
     VFolderOwnershipTypeField,
     VFolderPermissionField,
-    VFolderPermissionInfo,
     VFolderUsageInfo,
     VFolderUsageMode,
 )
@@ -109,62 +109,55 @@ class TestReExportedEnums:
         assert VFolderUsageMode.DATA.value == "data"
 
 
-class TestVFolderBasicInfo:
-    """Tests for VFolderBasicInfo sub-model."""
+class TestVFolderMetadataInfo:
+    """Tests for VFolderMetadataInfo sub-model."""
 
     def test_creation(self) -> None:
         now = datetime.now(tz=UTC)
-        info = VFolderBasicInfo(
-            id=uuid4(),
+        info = VFolderMetadataInfo(
             name="my-folder",
-            host="nfs01",
-            quota_scope_id="user:abc",
             usage_mode=VFolderUsageMode.GENERAL,
-            status=VFolderOperationStatusField.READY,
+            quota_scope_id="user:abc",
             created_at=now,
             last_used=None,
+            cloneable=False,
         )
         assert info.name == "my-folder"
         assert info.last_used is None
-
-    def test_round_trip(self) -> None:
-        now = datetime.now(tz=UTC)
-        info = VFolderBasicInfo(
-            id=uuid4(),
-            name="test",
-            host="nfs01",
-            quota_scope_id=None,
-            usage_mode=VFolderUsageMode.MODEL,
-            status=VFolderOperationStatusField.READY,
-            created_at=now,
-            last_used=now,
-        )
-        restored = VFolderBasicInfo.model_validate_json(info.model_dump_json())
-        assert restored.name == info.name
-        assert restored.usage_mode == VFolderUsageMode.MODEL
-
-
-class TestVFolderPermissionInfo:
-    """Tests for VFolderPermissionInfo sub-model."""
-
-    def test_creation(self) -> None:
-        info = VFolderPermissionInfo(
-            permission=VFolderPermissionField.READ_WRITE,
-            ownership_type=VFolderOwnershipTypeField.USER,
-            is_owner=True,
-            cloneable=False,
-        )
-        assert info.is_owner is True
         assert info.cloneable is False
 
     def test_round_trip(self) -> None:
-        info = VFolderPermissionInfo(
-            permission=VFolderPermissionField.READ_ONLY,
-            ownership_type=VFolderOwnershipTypeField.GROUP,
-            is_owner=False,
+        now = datetime.now(tz=UTC)
+        info = VFolderMetadataInfo(
+            name="test",
+            usage_mode=VFolderUsageMode.MODEL,
+            quota_scope_id=None,
+            created_at=now,
+            last_used=now,
             cloneable=True,
         )
-        restored = VFolderPermissionInfo.model_validate_json(info.model_dump_json())
+        restored = VFolderMetadataInfo.model_validate_json(info.model_dump_json())
+        assert restored.name == info.name
+        assert restored.usage_mode == VFolderUsageMode.MODEL
+        assert restored.cloneable is True
+
+
+class TestVFolderAccessControlInfo:
+    """Tests for VFolderAccessControlInfo sub-model."""
+
+    def test_creation(self) -> None:
+        info = VFolderAccessControlInfo(
+            permission=VFolderPermissionField.READ_WRITE,
+            ownership_type=VFolderOwnershipTypeField.USER,
+        )
+        assert info.permission == VFolderPermissionField.READ_WRITE
+
+    def test_round_trip(self) -> None:
+        info = VFolderAccessControlInfo(
+            permission=VFolderPermissionField.READ_ONLY,
+            ownership_type=VFolderOwnershipTypeField.GROUP,
+        )
+        restored = VFolderAccessControlInfo.model_validate_json(info.model_dump_json())
         assert restored.permission == VFolderPermissionField.READ_ONLY
         assert restored.ownership_type == VFolderOwnershipTypeField.GROUP
 
