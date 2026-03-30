@@ -13,6 +13,7 @@ from uuid import UUID
 import yarl
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ai.backend.common.config import ModelDefinition
 from ai.backend.common.data.endpoint.types import EndpointLifecycle
 from ai.backend.common.data.model_deployment.types import (
     ActivenessStatus,
@@ -27,7 +28,6 @@ if TYPE_CHECKING:
     from ai.backend.manager.data.session.types import SchedulingResult, SubStepResult
     from ai.backend.manager.models.deployment_policy import BlueGreenSpec, RollingUpdateSpec
 
-from ai.backend.common.config import ModelDefinition
 from ai.backend.common.types import (
     AutoScalingMetricSource,
     ClusterMode,
@@ -546,6 +546,7 @@ class ModelRevisionData:
     model_mount_config: ModelMountConfigData
     created_at: datetime
     image_id: UUID
+    model_definition: ModelDefinition | None = None
     extra_vfolder_mounts: list[ExtraVFolderMountData] = field(default_factory=list)
 
 

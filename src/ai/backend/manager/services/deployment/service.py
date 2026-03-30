@@ -222,6 +222,7 @@ def _convert_deployment_info_to_data(info: DeploymentInfo) -> ModelDeploymentDat
             image_id=info.current_revision_id
             or info.id,  # Placeholder: actual image_id not in ImageIdentifier
             created_at=info.metadata.created_at or datetime.now(UTC),
+            model_definition=rev.model_definition,
         )
 
     desired_count = info.replica_spec.desired_replica_count
