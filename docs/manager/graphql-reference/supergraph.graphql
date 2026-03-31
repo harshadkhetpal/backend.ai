@@ -16515,19 +16515,13 @@ type VFolder implements Node
   """Access control including permission level and ownership type."""
   accessControl: VFolderAccessControlInfo!
 
+  """
+  Ownership context including scalar IDs (userId, projectId, creatorEmail) and full node resolvers (user, project, creator).
+  """
+  ownership: VFolderOwnershipInfo!
+
   """Path for unmanaged virtual folders."""
   unmanagedPath: String
-
-  """The user who owns this virtual folder. Null for project-owned folders."""
-  ownerUser: UserV2
-
-  """
-  The project that owns this virtual folder. Null for user-owned folders.
-  """
-  ownerProject: ProjectV2
-
-  """The user who originally created this virtual folder."""
-  creator: UserV2
 }
 
 """
@@ -16692,6 +16686,27 @@ enum VFolderOrderField
   STATUS @join__enumValue(graph: STRAWBERRY)
   USAGE_MODE @join__enumValue(graph: STRAWBERRY)
   HOST @join__enumValue(graph: STRAWBERRY)
+}
+
+"""
+Added in UNRELEASED. Ownership context for a virtual folder. Provides both scalar IDs (userId, projectId, creatorEmail) for lightweight access and full node resolvers (user, project, creator) for detailed entity information.
+"""
+type VFolderOwnershipInfo
+  @join__type(graph: STRAWBERRY)
+{
+  """The user who owns this virtual folder. Null for project-owned folders."""
+  user: UserV2
+
+  """
+  The project that owns this virtual folder. Null for user-owned folders.
+  """
+  project: ProjectV2
+
+  """The user who originally created this virtual folder."""
+  creator: UserV2
+  userId: UUID
+  projectId: UUID
+  creatorEmail: String
 }
 
 """
