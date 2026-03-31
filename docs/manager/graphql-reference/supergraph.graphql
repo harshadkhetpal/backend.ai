@@ -9089,6 +9089,11 @@ type Mutation
   adminPurgeProjectV2(projectId: UUID!): PurgeProjectPayloadGQL! @join__field(graph: STRAWBERRY)
 
   """
+  Added in UNRELEASED. Unassign users from a project. RBAC validates project admin permission.
+  """
+  unassignUsersFromProjectV2(projectId: UUID!, input: UnassignUsersFromProjectInput!): UnassignUsersFromProjectPayload! @join__field(graph: STRAWBERRY)
+
+  """
   Added in 26.2.0. Create a new user (admin only). Requires superadmin privileges. Automatically creates a default keypair for the user
   """
   adminCreateUserV2(input: CreateUserV2Input!): CreateUserV2Payload! @join__field(graph: STRAWBERRY)
@@ -14489,6 +14494,38 @@ input TrafficStatusFilter
   """The in  field."""
   in: [TrafficStatus!] = null
   equals: TrafficStatus = null
+}
+
+"""
+Added in UNRELEASED. Error information for a user that failed to be unassigned.
+"""
+type UnassignUserError
+  @join__type(graph: STRAWBERRY)
+{
+  """UUID of the user that failed to be unassigned."""
+  userId: UUID!
+
+  """Error message describing the failure reason."""
+  message: String!
+}
+
+"""Added in UNRELEASED. Input for unassigning users from a project."""
+input UnassignUsersFromProjectInput
+  @join__type(graph: STRAWBERRY)
+{
+  """List of user UUIDs to unassign from the project."""
+  userIds: [UUID!]!
+}
+
+"""Added in UNRELEASED. Payload for user unassignment from project."""
+type UnassignUsersFromProjectPayload
+  @join__type(graph: STRAWBERRY)
+{
+  """List of users that were unassigned from the project."""
+  unassignedUsers: [UserV2!]!
+
+  """List of errors for users that could not be unassigned."""
+  failed: [UnassignUserError!]!
 }
 
 type UnloadImage
