@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pgsql
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ai.backend.common.config import ModelDefinition
 from ai.backend.manager.data.deployment_revision_preset.types import (
@@ -21,9 +22,11 @@ from ai.backend.manager.models.base import (
     PydanticColumn,
     PydanticListColumn,
     ResourceOptsEntry,
-    ResourceSlotEntry,
 )
 from ai.backend.manager.models.deployment_revision_preset.types import PresetValueEntry
+
+if TYPE_CHECKING:
+    from ai.backend.manager.models.resource_slot.row import PresetResourceSlotRow
 
 __all__ = ("DeploymentRevisionPresetRow",)
 
@@ -46,12 +49,9 @@ class DeploymentRevisionPresetRow(Base):  # type: ignore[misc]
     description: Mapped[str | None] = mapped_column("description", sa.Text, nullable=True)
     rank: Mapped[int] = mapped_column("rank", sa.Integer, nullable=False)
 
-    image: Mapped[str | None] = mapped_column("image", sa.String(length=512), nullable=True)
+    image_id: Mapped[uuid.UUID] = mapped_column("image_id", GUID, nullable=False)
     model_definition: Mapped[ModelDefinition | None] = mapped_column(
         "model_definition", PydanticColumn(ModelDefinition), nullable=True
-    )
-    resource_slots: Mapped[list[ResourceSlotEntry]] = mapped_column(
-        "resource_slots", PydanticListColumn(ResourceSlotEntry), nullable=False, server_default="[]"
     )
     resource_opts: Mapped[list[ResourceOptsEntry]] = mapped_column(
         "resource_opts", PydanticListColumn(ResourceOptsEntry), nullable=False, server_default="[]"
@@ -84,6 +84,12 @@ class DeploymentRevisionPresetRow(Base):  # type: ignore[misc]
         onupdate=sa.func.now(),
     )
 
+    resource_slot_rows: Mapped[list[PresetResourceSlotRow]] = relationship(
+        "PresetResourceSlotRow",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     def to_data(self) -> DeploymentRevisionPresetData:
         return DeploymentRevisionPresetData(
             id=self.id,
@@ -91,15 +97,15 @@ class DeploymentRevisionPresetRow(Base):  # type: ignore[misc]
             name=self.name,
             description=self.description,
             rank=self.rank,
-            image=self.image,
+            image_id=self.image_id,
             model_definition=(
                 self.model_definition.model_dump(by_alias=True, exclude_none=True)
                 if self.model_definition
                 else None
             ),
             resource_slots=[
-                ResourceSlotEntryData(resource_type=e.resource_type, quantity=e.quantity)
-                for e in (self.resource_slots or [])
+                ResourceSlotEntryData(resource_type=r.slot_name, quantity=str(r.quantity))
+                for r in self.resource_slot_rows
             ],
             resource_opts=[
                 ResourceOptsEntryData(name=e.name, value=e.value)

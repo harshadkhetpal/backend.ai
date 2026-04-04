@@ -345,9 +345,16 @@ class ExecutionSpec(ConfiguredModel):
     startup_command: str | None = None
     bootstrap_script: str | None = None
     environ: dict[str, str] | None = None
-    runtime_variant: RuntimeVariant = RuntimeVariant.CUSTOM
+    runtime_variant: RuntimeVariant
     callback_url: yarl.URL | None = None
     inference_runtime_config: Mapping[str, Any] | None = None
+
+
+class PresetValueSpec(ConfiguredModel):
+    """A runtime variant preset value binding stored in a deployment revision."""
+
+    preset_id: UUID
+    value: str
 
 
 class ModelRevisionSpec(ConfiguredModel):
@@ -358,6 +365,7 @@ class ModelRevisionSpec(ConfiguredModel):
     mounts: MountMetadata
     execution: ExecutionSpec
     model_definition: ModelDefinition | None = None
+    preset_values: list[PresetValueSpec] = Field(default_factory=list)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

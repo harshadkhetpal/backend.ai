@@ -16,6 +16,7 @@ from ai.backend.manager.data.deployment.types import (
     ReplicaSpec,
     ResourceSpec,
 )
+from ai.backend.manager.data.deployment_revision_preset.types import PresetValueData
 from ai.backend.manager.data.image.types import ImageIdentifier
 from ai.backend.manager.models.deployment_policy import BlueGreenSpec, RollingUpdateSpec
 
@@ -36,12 +37,13 @@ class ModelRevisionCreator:
     The image_id is resolved by the GQL layer before being passed here.
     """
 
-    image_id: UUID
+    image_id: UUID | None
     resource_spec: ResourceSpec
     mounts: VFolderMountsCreator
     execution: ExecutionSpec
     model_definition: ModelDefinition | None
     revision_preset_id: UUID | None = None
+    preset_values: list[PresetValueData] = field(default_factory=list)
     auto_activate: bool = False
 
 

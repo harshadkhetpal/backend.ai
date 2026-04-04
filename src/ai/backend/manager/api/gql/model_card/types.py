@@ -10,6 +10,12 @@ from ai.backend.common.dto.manager.v2.model_card.request import (
     CreateModelCardInput as CreateInputDTO,
 )
 from ai.backend.common.dto.manager.v2.model_card.request import (
+    DeleteModelCardsInput as DeleteCardsInputDTO,
+)
+from ai.backend.common.dto.manager.v2.model_card.request import (
+    DeployModelCardInput as DeployInputDTO,
+)
+from ai.backend.common.dto.manager.v2.model_card.request import (
     ModelCardFilter as FilterDTO,
 )
 from ai.backend.common.dto.manager.v2.model_card.request import (
@@ -25,13 +31,28 @@ from ai.backend.common.dto.manager.v2.model_card.response import (
     DeleteModelCardPayload as DeletePayloadDTO,
 )
 from ai.backend.common.dto.manager.v2.model_card.response import (
+    DeleteModelCardsPayload as DeleteCardsPayloadDTO,
+)
+from ai.backend.common.dto.manager.v2.model_card.response import (
+    DeployModelCardPayload as DeployPayloadDTO,
+)
+from ai.backend.common.dto.manager.v2.model_card.response import (
     ModelCardMetadata as ModelCardMetadataDTO,
 )
 from ai.backend.common.dto.manager.v2.model_card.response import (
     ModelCardNode as NodeDTO,
 )
 from ai.backend.common.dto.manager.v2.model_card.response import (
+    ScanProjectModelCardsPayload as ScanPayloadDTO,
+)
+from ai.backend.common.dto.manager.v2.model_card.response import (
     UpdateModelCardPayload as UpdatePayloadDTO,
+)
+from ai.backend.common.dto.manager.v2.model_card.types import (
+    ModelCardAvailablePresetsScope as AvailablePresetsScopeDTO,
+)
+from ai.backend.common.dto.manager.v2.model_card.types import (
+    ProjectModelCardScope as ProjectModelCardScopeDTO,
 )
 from ai.backend.common.meta.meta import NEXT_RELEASE_VERSION
 from ai.backend.manager.api.gql.base import StringFilter as StringFilterGQL
@@ -58,6 +79,18 @@ from ai.backend.manager.api.gql.pydantic_compat import PydanticNodeMixin, Pydant
 class ModelCardOrderFieldGQL(StrEnum):
     NAME = "name"
     CREATED_AT = "created_at"
+
+
+@gql_enum(
+    BackendAIGQLMeta(
+        added_version=NEXT_RELEASE_VERSION,
+        description="Access level for model cards.",
+    ),
+    name="ModelCardV2AccessLevel",
+)
+class ModelCardAccessLevelGQL(StrEnum):
+    PUBLIC = "public"
+    INTERNAL = "internal"
 
 
 @gql_pydantic_type(
@@ -126,6 +159,9 @@ class ModelCardGQL(PydanticNodeMixin[NodeDTO]):
     readme: str | None = gql_field(
         description="README content from the model VFolder, typically containing usage instructions and model documentation."
     )
+    access_level: ModelCardAccessLevelGQL = gql_field(
+        description="Access level of the model card (public or internal)."
+    )
     created_at: datetime = gql_field(description="Timestamp when this model card was registered.")
     updated_at: datetime | None = gql_field(
         description="Timestamp of the last modification to this model card."
@@ -147,6 +183,30 @@ class ModelCardV2Connection(Connection[ModelCardGQL]):
     def __init__(self, *args, count: int, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self.count = count
+
+
+@gql_pydantic_input(
+    BackendAIGQLMeta(
+        added_version=NEXT_RELEASE_VERSION,
+        description="Scope for model card queries within a MODEL_STORE project.",
+    ),
+    name="ProjectModelCardV2Scope",
+)
+class ProjectModelCardScopeGQL(PydanticInputMixin[ProjectModelCardScopeDTO]):
+    project_id: UUID = gql_field(description="MODEL_STORE project UUID.")
+
+
+@gql_pydantic_input(
+    BackendAIGQLMeta(
+        added_version=NEXT_RELEASE_VERSION,
+        description="Scope for querying available presets that satisfy a model card's resource requirements.",
+    ),
+    name="ModelCardAvailablePresetsV2Scope",
+)
+class ModelCardAvailablePresetsScopeGQL(PydanticInputMixin[AvailablePresetsScopeDTO]):
+    model_card_id: UUID = gql_field(
+        description="Model card UUID to check resource requirements against."
+    )
 
 
 @gql_pydantic_input(
@@ -176,7 +236,21 @@ class CreateModelCardInputGQL(PydanticInputMixin[CreateInputDTO]):
     name: str = gql_field(description="Model card name.")
     vfolder_id: UUID = gql_field(description="VFolder ID.")
     project_id: UUID = gql_field(description="Project ID.")
-    domain_name: str = gql_field(description="Domain name.")
+    domain_name: str | None = gql_field(default=None, description="Domain name.")
+    author: str | None = gql_field(default=None, description="Author.")
+    title: str | None = gql_field(default=None, description="Model title.")
+    model_version: str | None = gql_field(default=None, description="Model version.")
+    description: str | None = gql_field(default=None, description="Description.")
+    task: str | None = gql_field(default=None, description="ML task.")
+    category: str | None = gql_field(default=None, description="Category.")
+    architecture: str | None = gql_field(default=None, description="Architecture.")
+    framework: list[str] | None = gql_field(default=None, description="Frameworks.")
+    label: list[str] | None = gql_field(default=None, description="Labels.")
+    license: str | None = gql_field(default=None, description="License.")
+    readme: str | None = gql_field(default=None, description="README content.")
+    access_level: ModelCardAccessLevelGQL | None = gql_field(
+        default=None, description="Access level (public or internal)."
+    )
 
 
 @gql_pydantic_input(
@@ -186,7 +260,20 @@ class CreateModelCardInputGQL(PydanticInputMixin[CreateInputDTO]):
 class UpdateModelCardInputGQL(PydanticInputMixin[UpdateInputDTO]):
     id: UUID = gql_field(description="Model card ID.")
     name: str | None = gql_field(default=None, description="New name.")
-    description: str | None = gql_field(default=None, description="New description.")
+    author: str | None = gql_field(default=None, description="Author.")
+    title: str | None = gql_field(default=None, description="Title.")
+    model_version: str | None = gql_field(default=None, description="Version.")
+    description: str | None = gql_field(default=None, description="Description.")
+    task: str | None = gql_field(default=None, description="ML task.")
+    category: str | None = gql_field(default=None, description="Category.")
+    architecture: str | None = gql_field(default=None, description="Architecture.")
+    framework: list[str] | None = gql_field(default=None, description="Frameworks.")
+    label: list[str] | None = gql_field(default=None, description="Labels.")
+    license: str | None = gql_field(default=None, description="License.")
+    readme: str | None = gql_field(default=None, description="README content.")
+    access_level: ModelCardAccessLevelGQL | None = gql_field(
+        default=None, description="Access level (public or internal)."
+    )
 
 
 @gql_pydantic_type(
@@ -211,3 +298,67 @@ class UpdateModelCardPayloadGQL(PydanticOutputMixin[UpdatePayloadDTO]):
 )
 class DeleteModelCardPayloadGQL(PydanticOutputMixin[DeletePayloadDTO]):
     id: UUID = gql_field(description="ID of the deleted model card.")
+
+
+@gql_pydantic_type(
+    BackendAIGQLMeta(
+        added_version=NEXT_RELEASE_VERSION,
+        description="Result of scanning a MODEL_STORE project for model cards.",
+    ),
+    model=ScanPayloadDTO,
+    name="ScanProjectModelCardsV2Payload",
+)
+class ScanProjectModelCardsPayloadGQL(PydanticOutputMixin[ScanPayloadDTO]):
+    created_count: int = gql_field(description="Number of newly created model cards.")
+    updated_count: int = gql_field(description="Number of updated model cards.")
+    errors: list[str] = gql_field(description="Per-vfolder error messages.")
+
+
+@gql_pydantic_input(
+    BackendAIGQLMeta(
+        added_version=NEXT_RELEASE_VERSION,
+        description="Input for deploying a model card as a new deployment.",
+    ),
+    name="DeployModelCardV2Input",
+)
+class DeployModelCardInputGQL(PydanticInputMixin[DeployInputDTO]):
+    project_id: UUID = gql_field(description="Target project UUID for the deployment.")
+    revision_preset_id: UUID = gql_field(description="Deployment revision preset UUID.")
+    resource_group: str = gql_field(description="Resource group name.")
+    desired_replica_count: int = gql_field(default=1, description="Number of replicas.")
+
+
+@gql_pydantic_type(
+    BackendAIGQLMeta(
+        added_version=NEXT_RELEASE_VERSION,
+        description="Result of deploying a model card.",
+    ),
+    model=DeployPayloadDTO,
+    name="DeployModelCardV2Payload",
+)
+class DeployModelCardPayloadGQL(PydanticOutputMixin[DeployPayloadDTO]):
+    deployment_id: UUID = gql_field(description="ID of the created deployment.")
+    deployment_name: str = gql_field(description="Name of the created deployment.")
+
+
+@gql_pydantic_input(
+    BackendAIGQLMeta(
+        added_version=NEXT_RELEASE_VERSION,
+        description="Input for deleting multiple model cards.",
+    ),
+    name="DeleteModelCardsV2Input",
+)
+class DeleteModelCardsInputGQL(PydanticInputMixin[DeleteCardsInputDTO]):
+    ids: list[UUID] = gql_field(description="List of model card UUIDs to delete.")
+
+
+@gql_pydantic_type(
+    BackendAIGQLMeta(
+        added_version=NEXT_RELEASE_VERSION,
+        description="Payload for bulk model card deletion.",
+    ),
+    model=DeleteCardsPayloadDTO,
+    name="DeleteModelCardsV2Payload",
+)
+class DeleteModelCardsPayloadGQL(PydanticOutputMixin[DeleteCardsPayloadDTO]):
+    deleted_count: int = gql_field(description="Number of model cards successfully deleted.")

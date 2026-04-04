@@ -142,6 +142,8 @@ __all__ = (
     "VFolderHostPermission",
     "VFolderID",
     "VFolderMount",
+    "VFolderMountOptions",
+    "VFolderMountRequest",
     "VFolderUsageMode",
     "VolumeMountableNodeType",
     "aobject",
@@ -615,8 +617,25 @@ class MountTypes(enum.StrEnum):
     VOLUME = "volume"
     BIND = "bind"
     TMPFS = "tmpfs"
+    OVERLAY = "overlay"
     K8S_GENERIC = "k8s-generic"
     K8S_HOSTPATH = "k8s-hostpath"
+
+
+@attrs.define(slots=True)
+class VFolderMountOptions:
+    """Typed mount options for a single vfolder mount request."""
+
+    permission: MountPermission | None = None
+
+
+@attrs.define(slots=True)
+class VFolderMountRequest:
+    """A single vfolder mount request combining reference, destination path, and options."""
+
+    ref: str | uuid.UUID  # vfolder name (with optional /subpath) or UUID
+    dst_path: str | None = None  # custom mount destination path
+    options: VFolderMountOptions = attrs.Factory(VFolderMountOptions)
 
 
 class MountPoint(BaseModel):
@@ -1320,7 +1339,8 @@ class VFolderMount(JSONSerializableMixin):
 
     @classmethod
     def from_json(cls, obj: Mapping[str, Any]) -> Self:
-        return cls(**cls.as_trafaret().check(obj))
+        base = cls.as_trafaret().check(obj)
+        return cls(**base)
 
     @classmethod
     def from_dataclass(cls, obj: VFolderMountData) -> Self:
@@ -1935,34 +1955,24 @@ class ModelServiceProfile:
     port: int | None = dataclasses.field(default=None)
 
 
-class RuntimeVariant(enum.StrEnum):
-    VLLM = "vllm"
-    NIM = "nim"
-    CMD = "cmd"
-    HUGGINGFACE_TGI = "huggingface-tgi"
-    SGLANG = "sglang"
-    MODULAR_MAX = "modular-max"
-    CUSTOM = "custom"
+RuntimeVariant = NewType("RuntimeVariant", str)
 
-
-MODEL_SERVICE_RUNTIME_PROFILES: Mapping[RuntimeVariant, ModelServiceProfile] = {
-    RuntimeVariant.CUSTOM: ModelServiceProfile(name="Custom (Default)"),
-    RuntimeVariant.VLLM: ModelServiceProfile(
-        name="vLLM", health_check_endpoint="/health", port=8000
-    ),
-    RuntimeVariant.NIM: ModelServiceProfile(
+# Default runtime variant profiles keyed by runtime_variants.name from DB.
+# Used as fallback for health check endpoints and ports when not specified.
+MODEL_SERVICE_RUNTIME_PROFILES: Mapping[str, ModelServiceProfile] = {
+    "custom": ModelServiceProfile(name="Custom (Default)"),
+    "vllm": ModelServiceProfile(name="vLLM", health_check_endpoint="/health", port=8000),
+    "nim": ModelServiceProfile(
         name="NVIDIA NIM", health_check_endpoint="/v1/health/ready", port=8000
     ),
-    RuntimeVariant.HUGGINGFACE_TGI: ModelServiceProfile(
+    "huggingface-tgi": ModelServiceProfile(
         name="Huggingface TGI", health_check_endpoint="/info", port=3000
     ),
-    RuntimeVariant.SGLANG: ModelServiceProfile(
-        name="SGLang", health_check_endpoint="/health", port=9001
-    ),
-    RuntimeVariant.MODULAR_MAX: ModelServiceProfile(
+    "sglang": ModelServiceProfile(name="SGLang", health_check_endpoint="/health", port=9001),
+    "modular-max": ModelServiceProfile(
         name="Modular MAX", health_check_endpoint="/health", port=8000
     ),
-    RuntimeVariant.CMD: ModelServiceProfile(name="Predefined Image Command"),
+    "cmd": ModelServiceProfile(name="Predefined Image Command"),
 }
 
 

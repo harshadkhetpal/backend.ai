@@ -46,6 +46,8 @@ from ai.backend.common.types import (
     SessionTypes,
     VFolderID,
     VFolderMount,
+    VFolderMountOptions,
+    VFolderMountRequest,
     VFolderUsageMode,
 )
 from ai.backend.logging import BraceStyleAdapter
@@ -659,7 +661,11 @@ class EndpointRow(Base):  # type: ignore[misc]
             domain=self.domain,
             project=self.project,
             resource_group=self.resource_group,
-            resource_slots=current_rev.resource_slots if current_rev else ResourceSlot({}),
+            resource_slots=ResourceSlot({
+                r.slot_name: r.quantity for r in current_rev.resource_slot_rows
+            })
+            if current_rev
+            else ResourceSlot({}),
             url=self.url or "",
             model=current_rev.model or uuid.UUID(int=0) if current_rev else uuid.UUID(int=0),
             model_definition_path=current_rev.model_definition_path if current_rev else None,
@@ -690,7 +696,11 @@ class EndpointRow(Base):  # type: ignore[misc]
             destroyed_at=self.destroyed_at,
             retries=self.retries,
             lifecycle_stage=self.lifecycle_stage,
-            runtime_variant=(current_rev.runtime_variant if current_rev else RuntimeVariant.CUSTOM),
+            runtime_variant=(
+                RuntimeVariant(current_rev.runtime_variant)
+                if current_rev
+                else RuntimeVariant("custom")
+            ),
             extra_mounts=current_rev.extra_mounts if current_rev else [],
             routings=[routing.to_data() for routing in self.routings] if self.routings else None,
         )
@@ -1179,25 +1189,16 @@ class ModelServiceHelper:
                 "Same VFolder appears on both model specification and VFolder mount"
             )
 
-        requested_mounts = [*extra_mounts.keys()]
-        requested_mount_map: dict[str | UUID, str] = {
-            folder_id: options.mount_destination
+        mount_requests = [
+            VFolderMountRequest(
+                ref=folder_id,
+                dst_path=options.mount_destination,
+                options=VFolderMountOptions(
+                    permission=options.permission,
+                ),
+            )
             for folder_id, options in extra_mounts.items()
-            if options.mount_destination
-        }
-        requested_mount_options: dict[str | UUID, Any] = {
-            folder_id: {
-                "type": options.type,
-                "permission": options.permission,
-            }
-            for folder_id, options in extra_mounts.items()
-        }
-        log.debug(
-            "requested mounts: {}, mount_map: {}, mount_options: {}",
-            requested_mounts,
-            requested_mount_map,
-            requested_mount_options,
-        )
+        ]
         allowed_vfolder_types = await legacy_etcd_loader.get_vfolder_types()
         vfolder_mounts = await prepare_vfolder_mounts(
             conn,
@@ -1205,9 +1206,7 @@ class ModelServiceHelper:
             allowed_vfolder_types,
             user_scope,
             resource_policy,
-            requested_mounts,
-            requested_mount_map,
-            requested_mount_options,
+            mount_requests,
         )
 
         for vfolder in vfolder_mounts:

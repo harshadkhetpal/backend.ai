@@ -42,9 +42,11 @@ from ai.backend.manager.data.deployment.types import (
     RouteInfo,
     merge_revision_drafts,
 )
+from ai.backend.manager.data.deployment_revision_preset.types import PresetValueData
 from ai.backend.manager.data.permission.types import RBACElementRef
 from ai.backend.manager.errors.service import RoutingNotFound
 from ai.backend.manager.models.deployment_policy import DeploymentPolicyRow
+from ai.backend.manager.models.deployment_revision_preset.types import PresetValueEntry
 from ai.backend.manager.models.endpoint import EndpointRow, EndpointTokenRow
 from ai.backend.manager.repositories.base.rbac.entity_creator import RBACEntityCreator
 from ai.backend.manager.repositories.base.upserter import Upserter
@@ -64,6 +66,9 @@ from ai.backend.manager.repositories.deployment.creators import (
 from ai.backend.manager.repositories.deployment.upserters import DeploymentPolicyUpserterSpec
 from ai.backend.manager.repositories.deployment_revision_preset.repository import (
     DeploymentRevisionPresetRepository,
+)
+from ai.backend.manager.repositories.runtime_variant_preset.repository import (
+    RuntimeVariantPresetRepository,
 )
 from ai.backend.manager.services.deployment.actions.access_token.create_access_token import (
     CreateAccessTokenAction,
@@ -299,6 +304,7 @@ class DeploymentService:
     _revision_generator_registry: RevisionGeneratorRegistry
     _model_definition_generator_registry: ModelDefinitionGeneratorRegistry
     _deployment_revision_preset_repository: DeploymentRevisionPresetRepository | None
+    _runtime_variant_preset_repository: RuntimeVariantPresetRepository | None
 
     def __init__(
         self,
@@ -307,6 +313,7 @@ class DeploymentService:
         revision_generator_registry: RevisionGeneratorRegistry,
         model_definition_generator_registry: ModelDefinitionGeneratorRegistry,
         deployment_revision_preset_repository: DeploymentRevisionPresetRepository | None = None,
+        runtime_variant_preset_repository: RuntimeVariantPresetRepository | None = None,
     ) -> None:
         """Initialize deployment service with controller and repository."""
         self._deployment_controller = deployment_controller
@@ -314,6 +321,7 @@ class DeploymentService:
         self._revision_generator_registry = revision_generator_registry
         self._model_definition_generator_registry = model_definition_generator_registry
         self._deployment_revision_preset_repository = deployment_revision_preset_repository
+        self._runtime_variant_preset_repository = runtime_variant_preset_repository
 
     # ========== Deployment CRUD ==========
 
@@ -591,7 +599,7 @@ class DeploymentService:
         )
 
         preset_draft = RevisionDraft(
-            image_id=None,
+            image_id=preset_data.image_id,
             resource_slots={s.resource_type: s.quantity for s in preset_data.resource_slots},
             resource_opts={o.name: o.value for o in preset_data.resource_opts},
             cluster_mode=ClusterMode(preset_data.cluster_mode)
@@ -650,6 +658,10 @@ class DeploymentService:
             ),
             model_definition=merged.model_definition,
             revision_preset_id=creator.revision_preset_id,
+            preset_values=[
+                PresetValueData(preset_id=pv.preset_id, value=pv.value)
+                for pv in preset_data.preset_values
+            ],
         )
 
     async def _merge_deployment_config(
@@ -671,7 +683,7 @@ class DeploymentService:
         try:
             deployment_config = await generator.load_deployment_config(
                 vfolder_id=revision_creator.mounts.model_vfolder_id,
-                runtime_variant=revision_creator.execution.runtime_variant.value,
+                runtime_variant=revision_creator.execution.runtime_variant,
             )
         except Exception:
             log.warning(
@@ -775,6 +787,10 @@ class DeploymentService:
             runtime_variant=merged_creator.execution.runtime_variant,
             # TODO: Convert merged_creator.mounts.extra_mounts (list[MountInfo]) to Sequence[VFolderMount] instead of discarding.
             extra_mounts=(),
+            preset_values=[
+                PresetValueEntry(preset_id=pv.preset_id, value=pv.value)
+                for pv in merged_creator.preset_values
+            ],
         )
         creator = RBACEntityCreator(
             spec=spec,

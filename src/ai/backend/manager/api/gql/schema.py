@@ -60,16 +60,17 @@ from .deployment import (
     # Revision
     activate_deployment_revision,
     add_model_revision,
+    # Revision Preset
+    admin_create_deployment_revision_preset,
+    admin_delete_deployment_revision_preset,
+    admin_update_deployment_revision_preset,
     # Access Token
     create_access_token,
     # Auto Scaling
     create_auto_scaling_rule,
-    # Revision Preset
-    create_deployment_revision_preset,
     # Deployment
     create_model_deployment,
     delete_auto_scaling_rule,
-    delete_deployment_revision_preset,
     delete_model_deployment,
     deployment,
     deployment_revision_preset,
@@ -90,7 +91,6 @@ from .deployment import (
     sync_replicas,
     update_auto_scaling_rule,
     update_deployment_policy,
-    update_deployment_revision_preset,
     update_model_deployment,
     update_route_traffic_status,
 )
@@ -173,9 +173,13 @@ from .login_session import (
 from .model_card import (
     admin_create_model_card_v2,
     admin_delete_model_card_v2,
+    admin_delete_model_cards_v2,
+    admin_model_cards_v2,
     admin_update_model_card_v2,
+    deploy_model_card_v2,
     model_card_v2,
-    model_cards_v2,
+    project_model_cards_v2,
+    scan_project_model_cards_v2,
 )
 from .notification import (
     admin_create_notification_channel,
@@ -329,6 +333,7 @@ from .resource_usage import (
 from .runtime_variant import (
     admin_create_runtime_variant,
     admin_delete_runtime_variant,
+    admin_delete_runtime_variants,
     admin_update_runtime_variant,
     runtime_variant,
     runtime_variants,
@@ -384,7 +389,24 @@ from .user import (
     update_my_allowed_client_ip,
     update_user_v2,
 )
-from .vfolder_v2 import my_vfolders, project_vfolders
+from .vfolder_v2 import (
+    admin_vfolders_v2,
+    bulk_delete_vfolders_v2,
+    bulk_purge_vfolders_v2,
+    clone_vfolder_v2,
+    create_vfolder_v2,
+    delete_vfolder_v2,
+    my_vfolders,
+    project_vfolders,
+    purge_vfolder_v2,
+    vfolder_create_download_session_v2,
+    vfolder_create_upload_session_v2,
+    vfolder_delete_files_v2,
+    vfolder_list_files_v2,
+    vfolder_mkdir_v2,
+    vfolder_move_file_v2,
+    vfolder_v2,
+)
 from .vfs_storage import (
     create_vfs_storage,
     delete_vfs_storage,
@@ -563,7 +585,8 @@ class Query:
     deployment_revision_presets = deployment_revision_presets
     deployment_revision_preset = deployment_revision_preset
     # Model Card APIs
-    model_cards_v2 = model_cards_v2
+    admin_model_cards_v2 = admin_model_cards_v2
+    project_model_cards_v2 = project_model_cards_v2
     model_card_v2 = model_card_v2
     # Resource Allocation V2 APIs
     my_keypair_resource_allocation_v2 = my_keypair_resource_allocation_v2
@@ -574,6 +597,8 @@ class Query:
     admin_effective_resource_allocation_v2 = admin_effective_resource_allocation_v2
     check_preset_availability_v2 = check_preset_availability_v2
     # VFolder APIs
+    admin_vfolders_v2 = admin_vfolders_v2
+    vfolder_v2 = vfolder_v2
     project_vfolders = project_vfolders
     my_vfolders = my_vfolders
 
@@ -752,18 +777,35 @@ class Mutation:
     admin_create_runtime_variant = admin_create_runtime_variant
     admin_update_runtime_variant = admin_update_runtime_variant
     admin_delete_runtime_variant = admin_delete_runtime_variant
+    admin_delete_runtime_variants = admin_delete_runtime_variants
     # Runtime Variant Preset mutations
     admin_create_runtime_variant_preset = admin_create_runtime_variant_preset
     admin_update_runtime_variant_preset = admin_update_runtime_variant_preset
     admin_delete_runtime_variant_preset = admin_delete_runtime_variant_preset
     # Deployment Revision Preset mutations
-    create_deployment_revision_preset = create_deployment_revision_preset
-    update_deployment_revision_preset = update_deployment_revision_preset
-    delete_deployment_revision_preset = delete_deployment_revision_preset
+    admin_create_deployment_revision_preset = admin_create_deployment_revision_preset
+    admin_update_deployment_revision_preset = admin_update_deployment_revision_preset
+    admin_delete_deployment_revision_preset = admin_delete_deployment_revision_preset
     # Model Card mutations
     admin_create_model_card_v2 = admin_create_model_card_v2
     admin_update_model_card_v2 = admin_update_model_card_v2
     admin_delete_model_card_v2 = admin_delete_model_card_v2
+    admin_delete_model_cards_v2 = admin_delete_model_cards_v2
+    scan_project_model_cards_v2 = scan_project_model_cards_v2
+    deploy_model_card_v2 = deploy_model_card_v2
+    # VFolder V2 mutations
+    create_vfolder_v2 = create_vfolder_v2
+    delete_vfolder_v2 = delete_vfolder_v2
+    purge_vfolder_v2 = purge_vfolder_v2
+    bulk_delete_vfolders_v2 = bulk_delete_vfolders_v2
+    bulk_purge_vfolders_v2 = bulk_purge_vfolders_v2
+    clone_vfolder_v2 = clone_vfolder_v2
+    vfolder_list_files_v2 = vfolder_list_files_v2
+    vfolder_mkdir_v2 = vfolder_mkdir_v2
+    vfolder_move_file_v2 = vfolder_move_file_v2
+    vfolder_delete_files_v2 = vfolder_delete_files_v2
+    vfolder_create_upload_session_v2 = vfolder_create_upload_session_v2
+    vfolder_create_download_session_v2 = vfolder_create_download_session_v2
     # Session V2 mutations
     terminate_project_sessions_v2 = terminate_project_sessions_v2
 

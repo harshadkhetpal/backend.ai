@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, override
 
 from ai.backend.common.config import ModelDefinition
-from ai.backend.manager.models.base import ResourceOptsEntry, ResourceSlotEntry
+from ai.backend.manager.data.deployment_revision_preset.types import ResourceSlotEntryData
+from ai.backend.manager.models.base import ResourceOptsEntry
 from ai.backend.manager.models.deployment_revision_preset.row import DeploymentRevisionPresetRow
 from ai.backend.manager.models.deployment_revision_preset.types import PresetValueEntry
 from ai.backend.manager.repositories.base.updater import UpdaterSpec
@@ -16,12 +18,12 @@ class DeploymentRevisionPresetUpdaterSpec(UpdaterSpec[DeploymentRevisionPresetRo
     name: OptionalState[str] = field(default_factory=OptionalState[str].nop)
     description: TriState[str] = field(default_factory=TriState[str].nop)
     rank: OptionalState[int] = field(default_factory=OptionalState[int].nop)
-    image: TriState[str] = field(default_factory=TriState[str].nop)
+    image_id: TriState[uuid.UUID] = field(default_factory=TriState[uuid.UUID].nop)
     model_definition: TriState[ModelDefinition] = field(
         default_factory=TriState[ModelDefinition].nop
     )
-    resource_slots: OptionalState[list[ResourceSlotEntry]] = field(
-        default_factory=OptionalState[list[ResourceSlotEntry]].nop
+    resource_slots: OptionalState[list[ResourceSlotEntryData]] = field(
+        default_factory=OptionalState[list[ResourceSlotEntryData]].nop
     )
     resource_opts: OptionalState[list[ResourceOptsEntry]] = field(
         default_factory=OptionalState[list[ResourceOptsEntry]].nop
@@ -48,9 +50,8 @@ class DeploymentRevisionPresetUpdaterSpec(UpdaterSpec[DeploymentRevisionPresetRo
         self.name.update_dict(to_update, "name")
         self.description.update_dict(to_update, "description")
         self.rank.update_dict(to_update, "rank")
-        self.image.update_dict(to_update, "image")
+        self.image_id.update_dict(to_update, "image_id")
         self.model_definition.update_dict(to_update, "model_definition")
-        self.resource_slots.update_dict(to_update, "resource_slots")
         self.resource_opts.update_dict(to_update, "resource_opts")
         self.cluster_mode.update_dict(to_update, "cluster_mode")
         self.cluster_size.update_dict(to_update, "cluster_size")
