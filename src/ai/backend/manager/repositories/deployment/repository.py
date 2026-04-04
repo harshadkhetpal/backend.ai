@@ -1384,6 +1384,15 @@ class DeploymentRepository:
         return await self._db_source.search_routes(querier)
 
     @deployment_repository_resilience.apply()
+    async def search_revision_resource_slots(
+        self,
+        revision_id: uuid.UUID,
+        querier: BatchQuerier,
+    ) -> tuple[list[tuple[str, Decimal]], int, bool, bool]:
+        """Search resource slots allocated to a deployment revision."""
+        return await self._db_source.search_revision_resource_slots(revision_id, querier)
+
+    @deployment_repository_resilience.apply()
     async def get_route(
         self,
         route_id: uuid.UUID,

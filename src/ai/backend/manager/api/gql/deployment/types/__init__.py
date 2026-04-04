@@ -74,6 +74,14 @@ from .replica import (
     TrafficStatus,
     TrafficStatusFilter,
 )
+from .resource_slot import (
+    AllocatedResourceSlotConnection,
+    AllocatedResourceSlotEdge,
+    AllocatedResourceSlotFilterGQL,
+    AllocatedResourceSlotNodeGQL,
+    AllocatedResourceSlotOrderByGQL,
+    AllocatedResourceSlotOrderFieldGQL,
+)
 from .revision import (
     ActivateRevisionInputGQL,
     ActivateRevisionPayloadGQL,
@@ -218,6 +226,13 @@ __all__ = [
     "ResourceConfig",
     "ResourceConfigInput",
     "ResourceGroupInput",
+    # Allocated Resource Slot
+    "AllocatedResourceSlotConnection",
+    "AllocatedResourceSlotEdge",
+    "AllocatedResourceSlotFilterGQL",
+    "AllocatedResourceSlotNodeGQL",
+    "AllocatedResourceSlotOrderByGQL",
+    "AllocatedResourceSlotOrderFieldGQL",
     # Route
     "Route",
     "RouteConnection",

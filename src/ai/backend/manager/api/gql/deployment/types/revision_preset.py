@@ -6,7 +6,8 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
-from strawberry.relay import Connection, Edge, NodeID
+from strawberry import Info
+from strawberry.relay import Connection, Edge, NodeID, PageInfo
 
 from ai.backend.common.dto.manager.v2.deployment_revision_preset.request import (
     CreateDeploymentRevisionPresetInput as CreateInputDTO,
@@ -50,16 +51,23 @@ from ai.backend.common.dto.manager.v2.deployment_revision_preset.response import
 from ai.backend.common.meta.meta import NEXT_RELEASE_VERSION
 from ai.backend.manager.api.gql.base import StringFilter as StringFilterGQL
 from ai.backend.manager.api.gql.common.types import ResourceOptsEntryGQL as ResourceOptsEntryInfoGQL
-from ai.backend.manager.api.gql.common_types import ResourceSlotEntryGQL as ResourceSlotEntryInfoGQL
 from ai.backend.manager.api.gql.decorators import (
     BackendAIGQLMeta,
     PydanticInputMixin,
+    gql_added_field,
     gql_connection_type,
     gql_enum,
     gql_field,
     gql_node_type,
     gql_pydantic_input,
     gql_pydantic_type,
+)
+from ai.backend.manager.api.gql.deployment.types.resource_slot import (
+    AllocatedResourceSlotConnection,
+    AllocatedResourceSlotEdge,
+    AllocatedResourceSlotFilterGQL,
+    AllocatedResourceSlotNodeGQL,
+    AllocatedResourceSlotOrderByGQL,
 )
 from ai.backend.manager.api.gql.deployment.types.revision import (
     EnvironmentVariableEntryGQL as EnvironEntryInfoGQL,
@@ -68,6 +76,7 @@ from ai.backend.manager.api.gql.deployment.types.revision import (
     ModelDefinitionGQL,
 )
 from ai.backend.manager.api.gql.pydantic_compat import PydanticNodeMixin, PydanticOutputMixin
+from ai.backend.manager.api.gql.types import StrawberryGQLContext
 
 
 @gql_enum(
@@ -141,9 +150,6 @@ class PresetClusterSpecGQL(PydanticOutputMixin[PresetClusterSpecDTO]):
     name="PresetResourceAllocation",
 )
 class PresetResourceAllocationGQL(PydanticOutputMixin[PresetResourceAllocationDTO]):
-    resource_slots: list[ResourceSlotEntryInfoGQL] = gql_field(
-        description="CPU, memory, and accelerator allocations (e.g., cpu=4, mem=16g, cuda.device=2)."
-    )
     resource_opts: list[ResourceOptsEntryInfoGQL] = gql_field(
         description="Additional resource options such as shared memory (shmem) size."
     )
@@ -216,6 +222,56 @@ class DeploymentRevisionPresetGQL(PydanticNodeMixin[NodeDTO]):
     updated_at: datetime | None = gql_field(
         description="Timestamp of the last modification to this deployment preset."
     )
+
+    @gql_added_field(
+        BackendAIGQLMeta(
+            added_version=NEXT_RELEASE_VERSION,
+            description="Resource slot allocations for this preset.",
+        )
+    )  # type: ignore[misc]
+    async def resource_slots(
+        self,
+        info: Info[StrawberryGQLContext],
+        filter: AllocatedResourceSlotFilterGQL | None = None,
+        order_by: list[AllocatedResourceSlotOrderByGQL] | None = None,
+        before: str | None = None,
+        after: str | None = None,
+        first: int | None = None,
+        last: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> AllocatedResourceSlotConnection:
+        from ai.backend.common.dto.manager.v2.resource_slot.request import (
+            SearchAllocatedResourceSlotsInput,
+        )
+
+        pydantic_filter = filter.to_pydantic() if filter else None
+        pydantic_order = [o.to_pydantic() for o in order_by] if order_by else None
+        payload = await info.context.adapters.deployment_revision_preset.search_resource_slots(
+            preset_id=self.row_id,
+            input=SearchAllocatedResourceSlotsInput(
+                filter=pydantic_filter,
+                order=pydantic_order,
+                first=first,
+                after=after,
+                last=last,
+                before=before,
+                limit=limit,
+                offset=offset,
+            ),
+        )
+        nodes = [AllocatedResourceSlotNodeGQL.from_pydantic(item) for item in payload.items]
+        edges = [AllocatedResourceSlotEdge(node=node, cursor=node.slot_name) for node in nodes]
+        return AllocatedResourceSlotConnection(
+            count=payload.total_count,
+            edges=edges,
+            page_info=PageInfo(
+                has_next_page=payload.has_next_page,
+                has_previous_page=payload.has_previous_page,
+                start_cursor=edges[0].cursor if edges else None,
+                end_cursor=edges[-1].cursor if edges else None,
+            ),
+        )
 
 
 DeploymentRevisionPresetEdge = Edge[DeploymentRevisionPresetGQL]

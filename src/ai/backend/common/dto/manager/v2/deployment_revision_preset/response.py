@@ -30,9 +30,6 @@ class PresetValueInfo(BaseResponseModel):
 
 
 class PresetResourceAllocation(BaseResponseModel):
-    resource_slots: list[ResourceSlotEntryInfo] = Field(
-        default_factory=list, description="Resource slot allocations."
-    )
     resource_opts: list[ResourceOptsEntryInfo] = Field(
         default_factory=list, description="Additional resource options."
     )

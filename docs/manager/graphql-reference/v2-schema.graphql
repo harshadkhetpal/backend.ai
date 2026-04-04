@@ -479,6 +479,68 @@ type AgentV2Edge {
   node: AgentV2!
 }
 
+"""
+Added in UNRELEASED. Represents a single allocated resource slot entry for a deployment revision or preset.
+"""
+type AllocatedResourceSlot implements Node {
+  """The Globally Unique ID of this object"""
+  id: ID!
+
+  """Resource slot identifier (e.g., 'cpu', 'mem', 'cuda.device')."""
+  slotName: String!
+
+  """Allocated quantity for this resource slot."""
+  quantity: Decimal!
+}
+
+"""
+Added in UNRELEASED. Connection type for paginated allocated resource slot results.
+"""
+type AllocatedResourceSlotConnection {
+  """Pagination data for this connection"""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection"""
+  edges: [AllocatedResourceSlotEdge!]!
+
+  """Total number of allocated resource slots matching the filter criteria."""
+  count: Int!
+}
+
+"""An edge in a connection."""
+type AllocatedResourceSlotEdge {
+  """A cursor for use in pagination"""
+  cursor: String!
+
+  """The item at the end of the edge"""
+  node: AllocatedResourceSlot!
+}
+
+"""Added in UNRELEASED. Filter for allocated resource slots."""
+input AllocatedResourceSlotFilter {
+  slotName: StringFilter = null
+  AND: [AllocatedResourceSlotFilter!] = null
+  OR: [AllocatedResourceSlotFilter!] = null
+  NOT: [AllocatedResourceSlotFilter!] = null
+}
+
+"""
+Added in UNRELEASED. Order by specification for allocated resource slots.
+"""
+input AllocatedResourceSlotOrderBy {
+  field: AllocatedResourceSlotOrderField!
+  direction: OrderDirection! = ASC
+}
+
+"""
+Added in UNRELEASED. Fields available for ordering allocated resource slots.
+"""
+enum AllocatedResourceSlotOrderField {
+  SLOT_NAME
+  QUANTITY
+  RANK
+}
+
 """Added in UNRELEASED. Payload containing allowed domain names."""
 type AllowedDomainsPayload {
   """Allowed domain names."""
@@ -2864,6 +2926,9 @@ type DeploymentRevisionPreset implements Node {
 
   """Timestamp of the last modification to this deployment preset."""
   updatedAt: DateTime
+
+  """Added in UNRELEASED. Resource slot allocations for this preset."""
+  resourceSlots(filter: AllocatedResourceSlotFilter = null, orderBy: [AllocatedResourceSlotOrderBy!] = null, before: String = null, after: String = null, first: Int = null, last: Int = null, limit: Int = null, offset: Int = null): AllocatedResourceSlotConnection!
 }
 
 """Added in UNRELEASED. Paginated list of deployment revision presets."""
@@ -5373,6 +5438,9 @@ type ModelRevision implements Node {
 
   """The image of this entity."""
   image: ImageNode!
+
+  """Added in UNRELEASED. Resource slot allocations for this revision."""
+  resourceSlots(filter: AllocatedResourceSlotFilter = null, orderBy: [AllocatedResourceSlotOrderBy!] = null, before: String = null, after: String = null, first: Int = null, last: Int = null, limit: Int = null, offset: Int = null): AllocatedResourceSlotConnection!
 }
 
 """Added in 25.19.0. Connection for model revisions."""
@@ -6682,9 +6750,6 @@ type PresetExecutionSpec {
 Added in UNRELEASED. Compute resource allocation for the deployment, specifying CPU, memory, and accelerator requirements along with additional resource options.
 """
 type PresetResourceAllocation {
-  """Resource slot allocations."""
-  resourceSlots: [ResourceSlotEntry!]!
-
   """Additional resource options."""
   resourceOpts: [ResourceOptsEntry!]!
 }
@@ -8442,7 +8507,6 @@ type ResourceConfig {
   """The resource group of this entity."""
   resourceGroup: ScalingGroupNode!
   resourceGroupName: String!
-  resourceSlots: ResourceSlot!
   resourceOpts: ResourceOpts
 }
 

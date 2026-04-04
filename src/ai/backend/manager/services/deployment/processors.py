@@ -73,6 +73,10 @@ from ai.backend.manager.services.deployment.actions.model_revision.get_revision_
     GetRevisionByIdAction,
     GetRevisionByIdActionResult,
 )
+from ai.backend.manager.services.deployment.actions.model_revision.search_revision_resource_slots import (
+    SearchRevisionResourceSlotsAction,
+    SearchRevisionResourceSlotsActionResult,
+)
 from ai.backend.manager.services.deployment.actions.model_revision.search_revisions import (
     SearchRevisionsAction,
     SearchRevisionsActionResult,
@@ -141,6 +145,9 @@ class DeploymentProcessors(AbstractProcessorPackage):
     add_model_revision: ActionProcessor[AddModelRevisionAction, AddModelRevisionActionResult]
     get_revision_by_id: ActionProcessor[GetRevisionByIdAction, GetRevisionByIdActionResult]
     search_revisions: ActionProcessor[SearchRevisionsAction, SearchRevisionsActionResult]
+    search_revision_resource_slots: ActionProcessor[
+        SearchRevisionResourceSlotsAction, SearchRevisionResourceSlotsActionResult
+    ]
     activate_revision: ActionProcessor[ActivateRevisionAction, ActivateRevisionActionResult]
 
     # Route operations
@@ -205,6 +212,9 @@ class DeploymentProcessors(AbstractProcessorPackage):
         self.add_model_revision = ActionProcessor(service.add_model_revision, action_monitors)
         self.get_revision_by_id = ActionProcessor(service.get_revision_by_id, action_monitors)
         self.search_revisions = ActionProcessor(service.search_revisions, action_monitors)
+        self.search_revision_resource_slots = ActionProcessor(
+            service.search_revision_resource_slots, action_monitors
+        )
         self.activate_revision = ActionProcessor(service.activate_revision, action_monitors)
 
         # Route operations
@@ -255,6 +265,7 @@ class DeploymentProcessors(AbstractProcessorPackage):
             AddModelRevisionAction.spec(),
             GetRevisionByIdAction.spec(),
             SearchRevisionsAction.spec(),
+            SearchRevisionResourceSlotsAction.spec(),
             ActivateRevisionAction.spec(),
             # Route operations
             SyncReplicaAction.spec(),

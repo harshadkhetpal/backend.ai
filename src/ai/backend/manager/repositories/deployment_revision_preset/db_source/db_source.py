@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 from uuid import UUID
 
 import sqlalchemy as sa
@@ -11,6 +12,7 @@ from ai.backend.logging.utils import BraceStyleAdapter
 from ai.backend.manager.data.deployment_revision_preset.types import DeploymentRevisionPresetData
 from ai.backend.manager.errors.resource import DeploymentRevisionPresetNotFound
 from ai.backend.manager.models.deployment_revision_preset.row import DeploymentRevisionPresetRow
+from ai.backend.manager.models.resource_slot.row import PresetResourceSlotRow, ResourceSlotTypeRow
 from ai.backend.manager.models.utils import ExtendedAsyncSAEngine
 from ai.backend.manager.repositories.base import BatchQuerier, execute_batch_querier
 from ai.backend.manager.repositories.base.creator import Creator, execute_creator
@@ -40,7 +42,6 @@ class DeploymentRevisionPresetDBSource:
     ) -> DeploymentRevisionPresetData:
         async with self._db.begin_session() as session:
             result = await execute_creator(session, creator)
-            await session.refresh(result.row, ["resource_slot_rows"])
             return result.row.to_data()
 
     async def get_by_id(self, preset_id: UUID) -> DeploymentRevisionPresetData:
@@ -62,7 +63,6 @@ class DeploymentRevisionPresetDBSource:
                 raise DeploymentRevisionPresetNotFound(
                     f"Deployment revision preset with ID {updater.pk_value} not found."
                 )
-            await session.refresh(result.row, ["resource_slot_rows"])
             return result.row.to_data()
 
     async def delete(self, preset_id: UUID) -> DeploymentRevisionPresetData:
@@ -73,7 +73,6 @@ class DeploymentRevisionPresetDBSource:
             row = (await session.execute(stmt)).scalar_one_or_none()
             if row is None:
                 raise DeploymentRevisionPresetNotFound()
-            await session.refresh(row, ["resource_slot_rows"])
             data = row.to_data()
             await session.delete(row)
         return data
@@ -86,4 +85,42 @@ class DeploymentRevisionPresetDBSource:
             query = sa.select(DeploymentRevisionPresetRow)
             result = await execute_batch_querier(db_sess, query, querier)
             items = [row.DeploymentRevisionPresetRow.to_data() for row in result.rows]
+            return items, result.total_count, result.has_next_page, result.has_previous_page
+
+    async def get_resource_slots(
+        self,
+        preset_id: UUID,
+    ) -> list[tuple[str, Decimal]]:
+        """Get all resource slots for a preset (no pagination)."""
+        async with self._db.begin_readonly_session_read_committed() as db_sess:
+            stmt = sa.select(PresetResourceSlotRow).where(
+                PresetResourceSlotRow.preset_id == preset_id
+            )
+            rows = (await db_sess.execute(stmt)).scalars().all()
+            return [(r.slot_name, r.quantity) for r in rows]
+
+    async def search_resource_slots(
+        self,
+        preset_id: UUID,
+        querier: BatchQuerier,
+    ) -> tuple[list[tuple[str, Decimal]], int, bool, bool]:
+        """Search resource slots allocated to a preset.
+
+        Returns (items, total_count, has_next_page, has_previous_page).
+        Each item is a (slot_name, quantity) tuple.
+        """
+        async with self._db.begin_readonly_session_read_committed() as db_sess:
+            query = (
+                sa.select(PresetResourceSlotRow, ResourceSlotTypeRow.rank)
+                .join(
+                    ResourceSlotTypeRow,
+                    PresetResourceSlotRow.slot_name == ResourceSlotTypeRow.slot_name,
+                )
+                .where(PresetResourceSlotRow.preset_id == preset_id)
+            )
+            result = await execute_batch_querier(db_sess, query, querier)
+            items: list[tuple[str, Decimal]] = [
+                (row.PresetResourceSlotRow.slot_name, row.PresetResourceSlotRow.quantity)
+                for row in result.rows
+            ]
             return items, result.total_count, result.has_next_page, result.has_previous_page

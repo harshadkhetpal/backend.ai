@@ -723,6 +723,81 @@ type AliasImage
   msg: String
 }
 
+"""
+Added in UNRELEASED. Represents a single allocated resource slot entry for a deployment revision or preset.
+"""
+type AllocatedResourceSlot implements Node
+  @join__implements(graph: STRAWBERRY, interface: "Node")
+  @join__type(graph: STRAWBERRY)
+{
+  """The Globally Unique ID of this object"""
+  id: ID!
+
+  """Resource slot identifier (e.g., 'cpu', 'mem', 'cuda.device')."""
+  slotName: String!
+
+  """Allocated quantity for this resource slot."""
+  quantity: Decimal!
+}
+
+"""
+Added in UNRELEASED. Connection type for paginated allocated resource slot results.
+"""
+type AllocatedResourceSlotConnection
+  @join__type(graph: STRAWBERRY)
+{
+  """Pagination data for this connection"""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection"""
+  edges: [AllocatedResourceSlotEdge!]!
+
+  """Total number of allocated resource slots matching the filter criteria."""
+  count: Int!
+}
+
+"""An edge in a connection."""
+type AllocatedResourceSlotEdge
+  @join__type(graph: STRAWBERRY)
+{
+  """A cursor for use in pagination"""
+  cursor: String!
+
+  """The item at the end of the edge"""
+  node: AllocatedResourceSlot!
+}
+
+"""Added in UNRELEASED. Filter for allocated resource slots."""
+input AllocatedResourceSlotFilter
+  @join__type(graph: STRAWBERRY)
+{
+  slotName: StringFilter = null
+  AND: [AllocatedResourceSlotFilter!] = null
+  OR: [AllocatedResourceSlotFilter!] = null
+  NOT: [AllocatedResourceSlotFilter!] = null
+}
+
+"""
+Added in UNRELEASED. Order by specification for allocated resource slots.
+"""
+input AllocatedResourceSlotOrderBy
+  @join__type(graph: STRAWBERRY)
+{
+  field: AllocatedResourceSlotOrderField!
+  direction: OrderDirection! = ASC
+}
+
+"""
+Added in UNRELEASED. Fields available for ordering allocated resource slots.
+"""
+enum AllocatedResourceSlotOrderField
+  @join__type(graph: STRAWBERRY)
+{
+  SLOT_NAME @join__enumValue(graph: STRAWBERRY)
+  QUANTITY @join__enumValue(graph: STRAWBERRY)
+  RANK @join__enumValue(graph: STRAWBERRY)
+}
+
 """Added in UNRELEASED. Payload containing allowed domain names."""
 type AllowedDomainsPayload
   @join__type(graph: STRAWBERRY)
@@ -4566,6 +4641,9 @@ type DeploymentRevisionPreset implements Node
 
   """Timestamp of the last modification to this deployment preset."""
   updatedAt: DateTime
+
+  """Added in UNRELEASED. Resource slot allocations for this preset."""
+  resourceSlots(filter: AllocatedResourceSlotFilter = null, orderBy: [AllocatedResourceSlotOrderBy!] = null, before: String = null, after: String = null, first: Int = null, last: Int = null, limit: Int = null, offset: Int = null): AllocatedResourceSlotConnection!
 }
 
 """Added in UNRELEASED. Paginated list of deployment revision presets."""
@@ -8463,6 +8541,9 @@ type ModelRevision implements Node
 
   """The image of this entity."""
   image: ImageNode!
+
+  """Added in UNRELEASED. Resource slot allocations for this revision."""
+  resourceSlots(filter: AllocatedResourceSlotFilter = null, orderBy: [AllocatedResourceSlotOrderBy!] = null, before: String = null, after: String = null, first: Int = null, last: Int = null, limit: Int = null, offset: Int = null): AllocatedResourceSlotConnection!
 }
 
 """Added in 25.19.0. Connection for model revisions."""
@@ -10765,9 +10846,6 @@ Added in UNRELEASED. Compute resource allocation for the deployment, specifying 
 type PresetResourceAllocation
   @join__type(graph: STRAWBERRY)
 {
-  """Resource slot allocations."""
-  resourceSlots: [ResourceSlotEntry!]!
-
   """Additional resource options."""
   resourceOpts: [ResourceOptsEntry!]!
 }
@@ -13180,7 +13258,6 @@ type ResourceConfig
   """The resource group of this entity."""
   resourceGroup: ScalingGroupNode!
   resourceGroupName: String!
-  resourceSlots: ResourceSlot!
   resourceOpts: ResourceOpts
 }
 

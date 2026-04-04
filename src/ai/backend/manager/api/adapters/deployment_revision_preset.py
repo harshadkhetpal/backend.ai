@@ -22,12 +22,19 @@ from ai.backend.common.dto.manager.v2.deployment_revision_preset.response import
     PresetResourceAllocation,
     PresetValueInfo,
     ResourceOptsEntryInfo,
-    ResourceSlotEntryInfo,
     SearchDeploymentRevisionPresetsPayload,
     UpdateDeploymentRevisionPresetPayload,
 )
 from ai.backend.common.dto.manager.v2.deployment_revision_preset.types import (
     DeploymentRevisionPresetOrderField,
+)
+from ai.backend.common.dto.manager.v2.resource_slot.request import (
+    AllocatedResourceSlotFilter,
+    SearchAllocatedResourceSlotsInput,
+)
+from ai.backend.common.dto.manager.v2.resource_slot.response import (
+    AllocatedResourceSlotNode,
+    SearchAllocatedResourceSlotsPayload,
 )
 from ai.backend.manager.api.adapters.pagination import PaginationSpec
 from ai.backend.manager.data.deployment_revision_preset.types import (
@@ -44,7 +51,19 @@ from ai.backend.manager.models.deployment_revision_preset.orders import (
 )
 from ai.backend.manager.models.deployment_revision_preset.row import DeploymentRevisionPresetRow
 from ai.backend.manager.models.deployment_revision_preset.types import PresetValueEntry
-from ai.backend.manager.repositories.base import QueryCondition, QueryOrder, combine_conditions_or
+from ai.backend.manager.models.resource_slot.conditions import PresetResourceSlotConditions
+from ai.backend.manager.models.resource_slot.orders import (
+    ALLOCATED_SLOT_DEFAULT_BACKWARD_ORDER,
+    ALLOCATED_SLOT_DEFAULT_FORWARD_ORDER,
+    ALLOCATED_SLOT_PRESET_TIEBREAKER,
+    resolve_allocated_slot_preset_order,
+)
+from ai.backend.manager.repositories.base import (
+    BatchQuerier,
+    QueryCondition,
+    QueryOrder,
+    combine_conditions_or,
+)
 from ai.backend.manager.repositories.base.creator import Creator
 from ai.backend.manager.repositories.base.updater import Updater
 from ai.backend.manager.repositories.deployment_revision_preset.creators import (
@@ -62,6 +81,9 @@ from ai.backend.manager.services.deployment_revision_preset.actions.delete impor
 from ai.backend.manager.services.deployment_revision_preset.actions.search import (
     SearchDeploymentRevisionPresetsAction,
 )
+from ai.backend.manager.services.deployment_revision_preset.actions.search_resource_slots import (
+    SearchPresetResourceSlotsAction,
+)
 from ai.backend.manager.services.deployment_revision_preset.actions.update import (
     UpdateDeploymentRevisionPresetAction,
 )
@@ -77,6 +99,16 @@ def _preset_pagination_spec() -> PaginationSpec:
         forward_condition_factory=DeploymentRevisionPresetConditions.by_cursor_forward,
         backward_condition_factory=DeploymentRevisionPresetConditions.by_cursor_backward,
         tiebreaker_order=DeploymentRevisionPresetRow.id.asc(),
+    )
+
+
+def _preset_resource_slot_pagination_spec() -> PaginationSpec:
+    return PaginationSpec(
+        forward_order=ALLOCATED_SLOT_DEFAULT_FORWARD_ORDER,
+        backward_order=ALLOCATED_SLOT_DEFAULT_BACKWARD_ORDER,
+        forward_condition_factory=PresetResourceSlotConditions.by_cursor_forward,
+        backward_condition_factory=PresetResourceSlotConditions.by_cursor_backward,
+        tiebreaker_order=ALLOCATED_SLOT_PRESET_TIEBREAKER,
     )
 
 
@@ -246,6 +278,82 @@ class DeploymentRevisionPresetAdapter(BaseAdapter):
         )
         return DeleteDeploymentRevisionPresetPayload(id=result.preset.id)
 
+    async def search_resource_slots(
+        self,
+        preset_id: UUID,
+        input: SearchAllocatedResourceSlotsInput,
+    ) -> SearchAllocatedResourceSlotsPayload:
+        """Search resource slots allocated to a deployment revision preset."""
+        querier = self._build_preset_resource_slot_querier(input, preset_id=preset_id)
+        action_result = await self._processors.deployment_revision_preset.search_resource_slots.wait_for_complete(
+            SearchPresetResourceSlotsAction(
+                preset_id=preset_id,
+                querier=querier,
+            )
+        )
+        return SearchAllocatedResourceSlotsPayload(
+            items=[
+                AllocatedResourceSlotNode(slot_name=slot_name, quantity=quantity)
+                for slot_name, quantity in action_result.items
+            ],
+            total_count=action_result.total_count,
+            has_next_page=action_result.has_next_page,
+            has_previous_page=action_result.has_previous_page,
+        )
+
+    def _build_preset_resource_slot_querier(
+        self,
+        input: SearchAllocatedResourceSlotsInput,
+        preset_id: UUID,
+    ) -> BatchQuerier:
+        conditions: list[QueryCondition] = [
+            PresetResourceSlotConditions.by_preset_id(preset_id),
+        ]
+        if input.filter:
+            conditions.extend(self._convert_allocated_slot_filter(input.filter))
+        orders: list[QueryOrder] = (
+            [resolve_allocated_slot_preset_order(o.field, o.direction) for o in input.order]
+            if input.order
+            else []
+        )
+        return self._build_querier(
+            conditions=conditions,
+            orders=orders,
+            pagination_spec=_preset_resource_slot_pagination_spec(),
+            first=input.first,
+            after=input.after,
+            last=input.last,
+            before=input.before,
+            limit=input.limit,
+            offset=input.offset,
+        )
+
+    def _convert_allocated_slot_filter(
+        self,
+        filter_: AllocatedResourceSlotFilter,
+    ) -> list[QueryCondition]:
+        conditions: list[QueryCondition] = []
+        if filter_.slot_name is not None:
+            cond = self.convert_string_filter(
+                filter_.slot_name,
+                contains_factory=PresetResourceSlotConditions.by_slot_name_contains,
+                equals_factory=PresetResourceSlotConditions.by_slot_name_equals,
+                starts_with_factory=PresetResourceSlotConditions.by_slot_name_starts_with,
+                ends_with_factory=PresetResourceSlotConditions.by_slot_name_ends_with,
+            )
+            if cond is not None:
+                conditions.append(cond)
+        if filter_.AND:
+            for sub in filter_.AND:
+                conditions.extend(self._convert_allocated_slot_filter(sub))
+        if filter_.OR:
+            or_conds: list[QueryCondition] = []
+            for sub in filter_.OR:
+                or_conds.extend(self._convert_allocated_slot_filter(sub))
+            if or_conds:
+                conditions.append(combine_conditions_or(or_conds))
+        return conditions
+
     def _convert_filter(self, filter_: DeploymentRevisionPresetFilter) -> list[QueryCondition]:
         conditions: list[QueryCondition] = []
         if filter_.runtime_variant_id is not None:
@@ -335,10 +443,6 @@ class DeploymentRevisionPresetAdapter(BaseAdapter):
         data: DeploymentRevisionPresetData,
     ) -> DeploymentRevisionPresetNode:
         environ_entries = [EnvironEntryInfo(key=e.key, value=e.value) for e in (data.environ or [])]
-        resource_slot_entries = [
-            ResourceSlotEntryInfo(resource_type=s.resource_type, quantity=s.quantity)
-            for s in (data.resource_slots or [])
-        ]
         resource_opts_entries = [
             ResourceOptsEntryInfo(name=o.name, value=o.value) for o in (data.resource_opts or [])
         ]
@@ -357,7 +461,6 @@ class DeploymentRevisionPresetAdapter(BaseAdapter):
                 cluster_size=data.cluster_size,
             ),
             resource=PresetResourceAllocation(
-                resource_slots=resource_slot_entries,
                 resource_opts=resource_opts_entries,
             ),
             execution=PresetExecutionSpec(

@@ -94,9 +94,13 @@ from ai.backend.common.dto.manager.v2.deployment.types import (
     RollingUpdateStrategySpecInfo,
     RouteOrderField,
 )
-from ai.backend.common.dto.manager.v2.fair_share.types import (
-    ResourceSlotEntryInfo,
-    ResourceSlotInfo,
+from ai.backend.common.dto.manager.v2.resource_slot.request import (
+    AllocatedResourceSlotFilter,
+    SearchAllocatedResourceSlotsInput,
+)
+from ai.backend.common.dto.manager.v2.resource_slot.response import (
+    AllocatedResourceSlotNode,
+    SearchAllocatedResourceSlotsPayload,
 )
 from ai.backend.common.dto.manager.v2.resource_slot.types import (
     ResourceOptsEntryInfoDTO,
@@ -166,6 +170,13 @@ from ai.backend.manager.models.endpoint.orders import (
     AutoScalingRuleOrders,
     DeploymentOrders,
 )
+from ai.backend.manager.models.resource_slot.conditions import RevisionResourceSlotConditions
+from ai.backend.manager.models.resource_slot.orders import (
+    ALLOCATED_SLOT_DEFAULT_BACKWARD_ORDER,
+    ALLOCATED_SLOT_DEFAULT_FORWARD_ORDER,
+    ALLOCATED_SLOT_REVISION_TIEBREAKER,
+    resolve_allocated_slot_revision_order,
+)
 from ai.backend.manager.models.routing import RoutingRow
 from ai.backend.manager.models.routing.conditions import RouteConditions
 from ai.backend.manager.models.routing.orders import RouteOrders
@@ -176,6 +187,7 @@ from ai.backend.manager.repositories.base import (
     QueryCondition,
     QueryOrder,
     Updater,
+    combine_conditions_or,
 )
 from ai.backend.manager.repositories.deployment.updaters import (
     DeploymentMetadataUpdaterSpec,
@@ -229,6 +241,9 @@ from ai.backend.manager.services.deployment.actions.model_revision.add_model_rev
 )
 from ai.backend.manager.services.deployment.actions.model_revision.get_revision_by_id import (
     GetRevisionByIdAction,
+)
+from ai.backend.manager.services.deployment.actions.model_revision.search_revision_resource_slots import (
+    SearchRevisionResourceSlotsAction,
 )
 from ai.backend.manager.services.deployment.actions.model_revision.search_revisions import (
     SearchRevisionsAction,
@@ -327,6 +342,17 @@ def _get_replica_pagination_spec() -> PaginationSpec:
         forward_condition_factory=RouteConditions.by_cursor_forward,
         backward_condition_factory=RouteConditions.by_cursor_backward,
         tiebreaker_order=RoutingRow.id.asc(),
+    )
+
+
+@lru_cache(maxsize=1)
+def _get_revision_resource_slot_pagination_spec() -> PaginationSpec:
+    return PaginationSpec(
+        forward_order=ALLOCATED_SLOT_DEFAULT_FORWARD_ORDER,
+        backward_order=ALLOCATED_SLOT_DEFAULT_BACKWARD_ORDER,
+        forward_condition_factory=RevisionResourceSlotConditions.by_cursor_forward,
+        backward_condition_factory=RevisionResourceSlotConditions.by_cursor_backward,
+        tiebreaker_order=ALLOCATED_SLOT_REVISION_TIEBREAKER,
     )
 
 
@@ -861,6 +887,35 @@ class DeploymentAdapter(BaseAdapter):
         )
 
     # ------------------------------------------------------------------
+    # Revision resource slot operations
+    # ------------------------------------------------------------------
+
+    async def search_revision_resource_slots(
+        self,
+        revision_id: UUID,
+        input: SearchAllocatedResourceSlotsInput,
+    ) -> SearchAllocatedResourceSlotsPayload:
+        """Search resource slots allocated to a deployment revision."""
+        querier = self._build_revision_resource_slot_querier(input, revision_id=revision_id)
+        action_result = (
+            await self._processors.deployment.search_revision_resource_slots.wait_for_complete(
+                SearchRevisionResourceSlotsAction(
+                    revision_id=revision_id,
+                    querier=querier,
+                )
+            )
+        )
+        return SearchAllocatedResourceSlotsPayload(
+            items=[
+                AllocatedResourceSlotNode(slot_name=slot_name, quantity=quantity)
+                for slot_name, quantity in action_result.items
+            ],
+            total_count=action_result.total_count,
+            has_next_page=action_result.has_next_page,
+            has_previous_page=action_result.has_previous_page,
+        )
+
+    # ------------------------------------------------------------------
     # Route operations
     # ------------------------------------------------------------------
 
@@ -1334,6 +1389,65 @@ class DeploymentAdapter(BaseAdapter):
             offset=input.offset,
         )
 
+    def _build_revision_resource_slot_querier(
+        self,
+        input: SearchAllocatedResourceSlotsInput,
+        revision_id: UUID,
+    ) -> BatchQuerier:
+        conditions: list[QueryCondition] = [
+            RevisionResourceSlotConditions.by_revision_id(revision_id),
+        ]
+        if input.filter:
+            conditions.extend(
+                self._convert_allocated_slot_filter(
+                    input.filter,
+                    RevisionResourceSlotConditions,
+                )
+            )
+        orders: list[QueryOrder] = (
+            [resolve_allocated_slot_revision_order(o.field, o.direction) for o in input.order]
+            if input.order
+            else []
+        )
+        return self._build_querier(
+            conditions=conditions,
+            orders=orders,
+            pagination_spec=_get_revision_resource_slot_pagination_spec(),
+            first=input.first,
+            after=input.after,
+            last=input.last,
+            before=input.before,
+            limit=input.limit,
+            offset=input.offset,
+        )
+
+    def _convert_allocated_slot_filter(
+        self,
+        filter_: AllocatedResourceSlotFilter,
+        conditions_cls: type[RevisionResourceSlotConditions],
+    ) -> list[QueryCondition]:
+        conditions: list[QueryCondition] = []
+        if filter_.slot_name is not None:
+            cond = self.convert_string_filter(
+                filter_.slot_name,
+                contains_factory=conditions_cls.by_slot_name_contains,
+                equals_factory=conditions_cls.by_slot_name_equals,
+                starts_with_factory=conditions_cls.by_slot_name_starts_with,
+                ends_with_factory=conditions_cls.by_slot_name_ends_with,
+            )
+            if cond is not None:
+                conditions.append(cond)
+        if filter_.AND:
+            for sub in filter_.AND:
+                conditions.extend(self._convert_allocated_slot_filter(sub, conditions_cls))
+        if filter_.OR:
+            or_conds: list[QueryCondition] = []
+            for sub in filter_.OR:
+                or_conds.extend(self._convert_allocated_slot_filter(sub, conditions_cls))
+            if or_conds:
+                conditions.append(combine_conditions_or(or_conds))
+        return conditions
+
     # ------------------------------------------------------------------
     # Order converters
     # ------------------------------------------------------------------
@@ -1471,12 +1585,6 @@ class DeploymentAdapter(BaseAdapter):
             ),
             resource_config=ResourceConfigInfoDTO(
                 resource_group_name=data.resource_config.resource_group_name,
-                resource_slots=ResourceSlotInfo(
-                    entries=[
-                        ResourceSlotEntryInfo(resource_type=k, quantity=v)
-                        for k, v in data.resource_config.resource_slot.items()
-                    ]
-                ),
                 resource_opts=(
                     ResourceOptsInfoDTO(
                         entries=[

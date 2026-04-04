@@ -134,6 +134,10 @@ from ai.backend.manager.services.deployment.actions.model_revision.get_revision_
     GetRevisionByIdAction,
     GetRevisionByIdActionResult,
 )
+from ai.backend.manager.services.deployment.actions.model_revision.search_revision_resource_slots import (
+    SearchRevisionResourceSlotsAction,
+    SearchRevisionResourceSlotsActionResult,
+)
 from ai.backend.manager.services.deployment.actions.model_revision.search_revisions import (
     SearchRevisionsAction,
     SearchRevisionsActionResult,
@@ -597,10 +601,13 @@ class DeploymentService:
         preset_data = await self._deployment_revision_preset_repository.get_by_id(
             creator.revision_preset_id,
         )
+        preset_slots = await self._deployment_revision_preset_repository.get_resource_slots(
+            creator.revision_preset_id,
+        )
 
         preset_draft = RevisionDraft(
             image_id=preset_data.image_id,
-            resource_slots={s.resource_type: s.quantity for s in preset_data.resource_slots},
+            resource_slots={slot_name: str(quantity) for slot_name, quantity in preset_slots},
             resource_opts={o.name: o.value for o in preset_data.resource_opts},
             cluster_mode=ClusterMode(preset_data.cluster_mode)
             if preset_data.cluster_mode
@@ -945,6 +952,25 @@ class DeploymentService:
             total_count=result.total_count,
             has_next_page=result.has_next_page,
             has_previous_page=result.has_previous_page,
+        )
+
+    async def search_revision_resource_slots(
+        self, action: SearchRevisionResourceSlotsAction
+    ) -> SearchRevisionResourceSlotsActionResult:
+        """Search resource slots allocated to a deployment revision."""
+        (
+            items,
+            total_count,
+            has_next_page,
+            has_previous_page,
+        ) = await self._deployment_repository.search_revision_resource_slots(
+            action.revision_id, action.querier
+        )
+        return SearchRevisionResourceSlotsActionResult(
+            items=items,
+            total_count=total_count,
+            has_next_page=has_next_page,
+            has_previous_page=has_previous_page,
         )
 
     async def update_route_traffic_status(

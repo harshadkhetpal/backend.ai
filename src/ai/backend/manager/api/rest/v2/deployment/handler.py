@@ -32,6 +32,9 @@ from ai.backend.common.dto.manager.v2.deployment.request import (
     UpdateRouteTrafficStatusInput,
     UpsertDeploymentPolicyInput,
 )
+from ai.backend.common.dto.manager.v2.resource_slot.request import (
+    SearchAllocatedResourceSlotsInput,
+)
 from ai.backend.logging import BraceStyleAdapter
 from ai.backend.manager.api.rest.v2.path_params import (
     DeploymentIdPathParam,
@@ -165,6 +168,18 @@ class V2DeploymentHandler:
     ) -> APIResponse:
         """Activate a specific revision as the current revision."""
         result = await self._adapter.activate_revision(body.parsed)
+        return APIResponse.build(status_code=HTTPStatus.OK, response_model=result)
+
+    async def search_revision_resource_slots(
+        self,
+        path: PathParam[RevisionIdPathParam],
+        body: BodyParam[SearchAllocatedResourceSlotsInput],
+    ) -> APIResponse:
+        """Search resource slots allocated to a deployment revision."""
+        result = await self._adapter.search_revision_resource_slots(
+            revision_id=path.parsed.revision_id,
+            input=body.parsed,
+        )
         return APIResponse.build(status_code=HTTPStatus.OK, response_model=result)
 
     # ------------------------------------------------------------------

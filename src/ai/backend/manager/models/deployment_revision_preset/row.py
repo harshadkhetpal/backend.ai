@@ -14,7 +14,6 @@ from ai.backend.manager.data.deployment_revision_preset.types import (
     EnvironEntryData,
     PresetValueData,
     ResourceOptsEntryData,
-    ResourceSlotEntryData,
 )
 from ai.backend.manager.models.base import (
     GUID,
@@ -103,10 +102,6 @@ class DeploymentRevisionPresetRow(Base):  # type: ignore[misc]
                 if self.model_definition
                 else None
             ),
-            resource_slots=[
-                ResourceSlotEntryData(resource_type=r.slot_name, quantity=str(r.quantity))
-                for r in self.resource_slot_rows
-            ],
             resource_opts=[
                 ResourceOptsEntryData(name=e.name, value=e.value)
                 for e in (self.resource_opts or [])

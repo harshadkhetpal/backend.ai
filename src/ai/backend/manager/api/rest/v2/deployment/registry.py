@@ -93,6 +93,12 @@ def register_v2_deployment_routes(
         handler.activate_revision,
         middlewares=[auth_required],
     )
+    registry.add(
+        "POST",
+        "/revisions/{revision_id}/resource-slots/search",
+        handler.search_revision_resource_slots,
+        middlewares=[auth_required],
+    )
 
     # ------------------------------------------------------------------
     # Replica operations

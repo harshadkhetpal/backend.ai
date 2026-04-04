@@ -39,7 +39,6 @@ class DeploymentRevisionPresetData:
     rank: int
     image_id: UUID
     model_definition: dict[str, Any] | None
-    resource_slots: list[ResourceSlotEntryData]
     resource_opts: list[ResourceOptsEntryData]
     cluster_mode: str
     cluster_size: int

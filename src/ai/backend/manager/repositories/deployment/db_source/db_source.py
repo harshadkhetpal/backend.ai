@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager as actxmgr
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, cast
 
 import sqlalchemy as sa
@@ -96,7 +97,10 @@ from ai.backend.manager.models.group import GroupRow, groups
 from ai.backend.manager.models.image import ImageRow
 from ai.backend.manager.models.kernel import KernelRow
 from ai.backend.manager.models.keypair import keypairs
-from ai.backend.manager.models.resource_slot.row import DeploymentRevisionResourceSlotRow
+from ai.backend.manager.models.resource_slot.row import (
+    DeploymentRevisionResourceSlotRow,
+    ResourceSlotTypeRow,
+)
 from ai.backend.manager.models.routing import RoutingRow
 from ai.backend.manager.models.runtime_variant_preset.row import RuntimeVariantPresetRow
 from ai.backend.manager.models.scaling_group import ScalingGroupRow, scaling_groups
@@ -2835,3 +2839,32 @@ class DeploymentDBSource:
                 )
             )
             await db_sess.execute(query)
+
+    async def search_revision_resource_slots(
+        self,
+        revision_id: uuid.UUID,
+        querier: BatchQuerier,
+    ) -> tuple[list[tuple[str, Decimal]], int, bool, bool]:
+        """Search resource slots allocated to a deployment revision.
+
+        Returns (items, total_count, has_next_page, has_previous_page).
+        Each item is a (slot_name, quantity) tuple.
+        """
+        async with self._begin_readonly_session_read_committed() as db_sess:
+            query = (
+                sa.select(DeploymentRevisionResourceSlotRow, ResourceSlotTypeRow.rank)
+                .join(
+                    ResourceSlotTypeRow,
+                    DeploymentRevisionResourceSlotRow.slot_name == ResourceSlotTypeRow.slot_name,
+                )
+                .where(DeploymentRevisionResourceSlotRow.revision_id == revision_id)
+            )
+            result = await execute_batch_querier(db_sess, query, querier)
+            items: list[tuple[str, Decimal]] = [
+                (
+                    row.DeploymentRevisionResourceSlotRow.slot_name,
+                    row.DeploymentRevisionResourceSlotRow.quantity,
+                )
+                for row in result.rows
+            ]
+            return items, result.total_count, result.has_next_page, result.has_previous_page
