@@ -484,6 +484,13 @@ class ProjectAdapter(BaseAdapter):
     @staticmethod
     def _convert_user_nested_filter(user_filter: ProjectUserFilter) -> list[QueryCondition]:
         raw_conditions: list[QueryCondition] = []
+        if user_filter.id is not None:
+            condition = user_filter.id.build_query_condition(
+                equals_factory=GroupConditions.by_user_id_equals,
+                in_factory=GroupConditions.by_user_id_in,
+            )
+            if condition is not None:
+                raw_conditions.append(condition)
         if user_filter.username is not None:
             condition = user_filter.username.build_query_condition(
                 contains_factory=GroupConditions.by_user_username_contains,
