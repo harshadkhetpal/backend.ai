@@ -123,6 +123,7 @@ class PermissionControllerService:
         input_data = CreateRoleInput(
             creator=action.creator,
             object_permissions=action.object_permissions,
+            scope_refs=action.scope_refs,
         )
         result = await self._repository.create_role(input_data)
         return CreateRoleActionResult(
