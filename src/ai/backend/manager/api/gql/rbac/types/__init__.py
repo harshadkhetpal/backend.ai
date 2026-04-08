@@ -126,7 +126,7 @@ __all__ = [
     "EntityNode",
     "EntityEdge",
     "EntityConnection",
-    # Scope input
+    # Scope types
     "ScopeInputGQL",
     # Scope-entity combination
     "ScopeEntityCombinationGQL",

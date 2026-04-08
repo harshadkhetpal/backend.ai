@@ -10,6 +10,7 @@ from functools import lru_cache
 from uuid import UUID
 
 from ai.backend.common.api_handlers import SENTINEL
+from ai.backend.common.data.filter_specs import StringMatchSpec
 from ai.backend.common.data.permission.types import OperationType as InternalOperationType
 from ai.backend.common.data.permission.types import RBACElementType
 from ai.backend.common.dto.manager.rbac import (
@@ -723,6 +724,20 @@ class RBACAdapter(BaseAdapter):
             has_next_page=raw.has_next_page,
             has_previous_page=raw.has_previous_page,
         )
+
+    async def search_role_scopes(
+        self,
+        role_id: UUID,
+        input: AdminSearchEntitiesGQLInput,
+    ) -> SearchResult[AssociationScopesEntitiesNode]:
+        """Search scope associations for a specific role with pagination."""
+        base_conditions: list[QueryCondition] = [
+            EntityScopeConditions.by_entity_type(RBACElementType.ROLE),
+            EntityScopeConditions.by_entity_id_equals(
+                StringMatchSpec(value=str(role_id), case_insensitive=False, negated=False)
+            ),
+        ]
+        return await self.admin_search_entities_gql(input, base_conditions=base_conditions)
 
     # ------------------------------------------------------------------ get
 
