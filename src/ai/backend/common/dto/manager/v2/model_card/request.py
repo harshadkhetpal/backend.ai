@@ -22,7 +22,9 @@ class ResourceSlotEntryInput(BaseRequestModel):
 class CreateModelCardInput(BaseRequestModel):
     name: str = Field(min_length=1, max_length=512, description="Model card name.")
     vfolder_id: UUID = Field(description="VFolder ID containing the model.")
-    project_id: UUID = Field(description="Project ID (must be MODEL_STORE type).")
+    model_store_project_id: UUID = Field(
+        description="MODEL_STORE project UUID where the model card belongs."
+    )
     domain_name: str | None = Field(
         default=None,
         max_length=64,
@@ -67,6 +69,13 @@ class ModelCardFilter(BaseRequestModel):
     name: StringFilter | None = Field(default=None)
     domain_name: str | None = Field(default=None)
     project_id: UUID | None = Field(default=None)
+    storage_host: StringFilter | None = Field(
+        default=None,
+        description=(
+            "Filter by the storage host backing the model card's VFolder. "
+            "Evaluated as an EXISTS subquery joining the model VFolder's host column."
+        ),
+    )
     AND: list[ModelCardFilter] | None = Field(default=None)
     OR: list[ModelCardFilter] | None = Field(default=None)
     NOT: list[ModelCardFilter] | None = Field(default=None)

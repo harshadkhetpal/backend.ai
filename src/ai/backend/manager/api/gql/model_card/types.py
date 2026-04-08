@@ -317,6 +317,13 @@ class ModelCardFilterGQL(PydanticInputMixin[FilterDTO]):
     name: StringFilterGQL | None = gql_field(default=None, description="Name filter.")
     domain_name: str | None = gql_field(default=None, description="Domain filter.")
     project_id: UUID | None = gql_field(default=None, description="Project filter.")
+    storage_host: StringFilterGQL | None = gql_field(
+        default=None,
+        description=(
+            "Filter by the storage host backing the model card's VFolder. "
+            "Matches via an EXISTS subquery against the VFolder host column."
+        ),
+    )
 
 
 @gql_pydantic_input(
@@ -335,7 +342,9 @@ class ModelCardOrderByGQL(PydanticInputMixin[OrderDTO]):
 class CreateModelCardInputGQL(PydanticInputMixin[CreateInputDTO]):
     name: str = gql_field(description="Model card name.")
     vfolder_id: UUID = gql_field(description="VFolder ID.")
-    project_id: UUID = gql_field(description="Project ID.")
+    model_store_project_id: UUID = gql_field(
+        description="MODEL_STORE project UUID where the model card belongs."
+    )
     domain_name: str | None = gql_field(default=None, description="Domain name.")
     author: str | None = gql_field(default=None, description="Author.")
     title: str | None = gql_field(default=None, description="Model title.")
