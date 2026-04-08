@@ -283,7 +283,7 @@ class ScheduleCoordinator:
                     )
 
                 # Process each scaling group in parallel
-                scaling_groups = await self._repository.get_schedulable_scaling_groups()
+                scaling_groups = await self._repository.get_all_scaling_groups()
 
                 results = await asyncio.gather(
                     *[
@@ -327,8 +327,9 @@ class ScheduleCoordinator:
             log.debug("Processing promotion schedule type: {}", schedule_type.value)
 
             with self._operation_metrics.measure_operation(spec.name):
-                # Process each scaling group in parallel
-                scaling_groups = await self._repository.get_schedulable_scaling_groups()
+                # Promotions update session status based on kernel state and
+                # must run even when there are no schedulable or alive agents.
+                scaling_groups = await self._repository.get_all_scaling_groups()
 
                 results = await asyncio.gather(
                     *[
@@ -387,7 +388,7 @@ class ScheduleCoordinator:
                     )
 
                 # Process each scaling group in parallel
-                scaling_groups = await self._repository.get_schedulable_scaling_groups()
+                scaling_groups = await self._repository.get_all_scaling_groups()
 
                 results = await asyncio.gather(
                     *[
@@ -445,7 +446,7 @@ class ScheduleCoordinator:
                 stack.enter_context(self._operation_metrics.measure_operation(observer.name()))
 
                 # Process each scaling group in parallel
-                scaling_groups = await self._repository.get_schedulable_scaling_groups()
+                scaling_groups = await self._repository.get_all_scaling_groups()
 
                 log.debug(
                     "[Coordinator] Found {} scaling groups to observe: {}",
