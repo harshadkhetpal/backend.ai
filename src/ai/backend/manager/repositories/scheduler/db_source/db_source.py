@@ -811,11 +811,34 @@ class ScheduleDBSource:
                 skipped_sessions=skipped_sessions,
             )
 
+    async def _free_kernel_allocations(
+        self,
+        db_sess: SASession,
+        kernel_ids: Sequence[UUID],
+        now: datetime,
+    ) -> None:
+        """Set ``free_at`` on the given kernels' active allocations. Only sets
+        ``free_at`` and does not adjust ``agent_resources.used`` -- callers
+        whose source statuses can include RUNNING/TERMINATING must use
+        ``update_kernel_status_terminated`` instead. Idempotent.
+        """
+        if not kernel_ids:
+            return
+        await db_sess.execute(
+            sa.update(ResourceAllocationRow)
+            .where(
+                ResourceAllocationRow.kernel_id.in_(kernel_ids),
+                ResourceAllocationRow.free_at.is_(None),
+            )
+            .values(free_at=now)
+        )
+
     async def _cancel_pending_sessions(
         self, db_sess: SASession, session_ids: list[SessionId], reason: str, now: datetime
     ) -> list[SessionId]:
-        """Cancel pending sessions and their kernels."""
-        # Cancel pending sessions
+        """Cancel PENDING sessions and their kernels, and free the kernels'
+        ``resource_allocations`` rows in the same transaction.
+        """
         cancel_stmt = (
             sa.update(SessionRow)
             .values(
@@ -836,9 +859,8 @@ class ScheduleDBSource:
         cancelled_result = await db_sess.execute(cancel_stmt)
         cancelled_sessions = [cast(SessionId, row.id) for row in cancelled_result]
 
-        # Cancel kernels for cancelled sessions
         if cancelled_sessions:
-            await db_sess.execute(
+            kernel_update_result = await db_sess.execute(
                 sa.update(KernelRow)
                 .values(
                     status=KernelStatus.CANCELLED,
@@ -852,7 +874,10 @@ class ScheduleDBSource:
                     ),
                 )
                 .where(KernelRow.session_id.in_(cancelled_sessions))
+                .returning(KernelRow.id)
             )
+            cancelled_kernel_ids = [row.id for row in kernel_update_result]
+            await self._free_kernel_allocations(db_sess, cancelled_kernel_ids, now)
 
         return cancelled_sessions
 
@@ -2590,23 +2615,15 @@ class ScheduleDBSource:
     async def cancel_kernels_for_failed_image(
         self, agent_id: AgentId, image: str, error_msg: str, image_ref: str | None = None
     ) -> set[SessionId]:
-        """
-        Cancel kernels for an image that failed to be available on an agent.
-        Returns session IDs that may need to be checked for full cancellation.
-
-        :param agent_id: The agent ID where the image is unavailable
-        :param image: The image name that failed
-        :param error_msg: The error message to include in status
-        :param image_ref: Optional image reference (canonical format)
-        :return: Set of affected session IDs
+        """Cancel SCHEDULED/PULLING/PREPARING kernels of a failed-to-pull
+        image on an agent and free their ``resource_allocations`` rows in
+        the same transaction. Returns affected session IDs.
         """
         async with self._begin_session_read_committed() as db_sess:
             now = await self._get_db_now_in_session(db_sess)
-            # Use image_ref if provided (canonical format), otherwise use image
             image_to_match = image_ref if image_ref else image
-            # Find and cancel kernels on this agent with this image in SCHEDULED, PULLING
-            # or PREPARING state. SCHEDULED is included because image pull failure can
-            # occur before kernel transitions to PREPARING.
+            # SCHEDULED is included because image pull failure can occur
+            # before the kernel transitions to PREPARING.
             stmt = (
                 sa.update(KernelRow)
                 .where(
@@ -2629,10 +2646,15 @@ class ScheduleDBSource:
                         {KernelStatus.CANCELLED.name: now.isoformat()},
                     ),
                 )
-                .returning(KernelRow.session_id)
+                .returning(KernelRow.id, KernelRow.session_id)
             )
             result = await db_sess.execute(stmt)
-            return {row.session_id for row in result}
+            cancelled_rows = result.all()
+            cancelled_kernel_ids = [row.id for row in cancelled_rows]
+
+            await self._free_kernel_allocations(db_sess, cancelled_kernel_ids, now)
+
+            return {row.session_id for row in cancelled_rows}
 
     async def check_and_cancel_session_if_needed(self, session_id: SessionId) -> bool:
         """
