@@ -722,7 +722,7 @@ class Endpoint(graphene.ObjectType):  # type: ignore[misc]
             retries=dto.retries,
             routings=[Routing.from_dto(r) for r in dto.routings]
             if dto.routings is not None
-            else None,
+            else [],
             lifecycle_stage=dto.lifecycle_stage,
             runtime_variant=RuntimeVariantInfo.from_enum(dto.runtime_variant),
         )
@@ -915,7 +915,9 @@ class Endpoint(graphene.ObjectType):  # type: ignore[misc]
             return [VirtualFolderNode.from_row(info, r) for r in (await sess.scalars(query))]
 
     async def resolve_errors(self, info: graphene.ResolveInfo) -> Any:
-        error_routes = [r for r in self.routings if r.status == RouteStatus.FAILED_TO_START.name]
+        error_routes = [
+            r for r in (self.routings or []) if r.status == RouteStatus.FAILED_TO_START.name
+        ]
         errors = []
         for route in error_routes:
             if not route.error_data:
