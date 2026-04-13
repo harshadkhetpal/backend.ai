@@ -19,11 +19,9 @@ down_revision = "2c9000848b6e"
 branch_labels = None
 depends_on = None
 
-
-# Fixed UUIDs for seed rows so references (tests, GQL selections) stay stable.
+# Fixed UUIDs for seed rows so references stay stable.
 _SEED_CORE_ID = uuid.UUID("00000000-0000-0000-0000-00000000c02e")
 _SEED_WEBUI_ID = uuid.UUID("00000000-0000-0000-0000-0000000000eb")
-_SEED_FASTTRACK_ID = uuid.UUID("00000000-0000-0000-0000-00000000fa57")
 
 
 def upgrade() -> None:
@@ -56,9 +54,6 @@ def upgrade() -> None:
             ),
         )
 
-        # Seed the three well-known client types so existing login flows keep working
-        # right after the migration. Administrators can add/remove types afterwards
-        # via the login_client_type CRUD APIs.
         login_client_types_table = sa.table(
             "login_client_types",
             sa.column("id", postgresql.UUID(as_uuid=True)),
@@ -77,11 +72,6 @@ def upgrade() -> None:
                     "id": _SEED_WEBUI_ID,
                     "name": "webui",
                     "description": "Backend.AI web console.",
-                },
-                {
-                    "id": _SEED_FASTTRACK_ID,
-                    "name": "fasttrack",
-                    "description": "Backend.AI FastTrack workflow client.",
                 },
             ],
         )
