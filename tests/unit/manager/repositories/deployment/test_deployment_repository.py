@@ -3815,3 +3815,78 @@ class TestDeploymentRepositoryDuplicateName:
 
         assert result.metadata.name == "reusable-endpoint"
         assert result.metadata.project == test_group.id
+
+    @pytest.fixture
+    async def coexisting_active_and_destroying_endpoints(
+        self,
+        db_with_cleanup: ExtendedAsyncSAEngine,
+        test_domain: DomainRow,
+        test_group: GroupRow,
+        test_scaling_group: ScalingGroupRow,
+    ) -> tuple[uuid.UUID, uuid.UUID]:
+        """Seed two endpoints sharing (name, domain, project) — one CREATED and
+        one already in DESTROYING — bypassing the application-level uniqueness
+        check to reproduce the corrupt state described in BA-5698.
+
+        Returns (target_id, sibling_id) where target is the active row to be
+        destroyed and sibling is the DESTROYING row.
+        """
+        duplicate_name = f"dup-destroy-{uuid.uuid4().hex[:8]}"
+        target_id = uuid.uuid4()
+        sibling_id = uuid.uuid4()
+        user_id = uuid.uuid4()
+
+        async with db_with_cleanup.begin_session() as db_sess:
+            target = EndpointRow(
+                id=target_id,
+                name=duplicate_name,
+                created_user=user_id,
+                session_owner=user_id,
+                domain=test_domain.name,
+                project=test_group.id,
+                resource_group=test_scaling_group.name,
+                replicas=1,
+                desired_replicas=1,
+                url=None,
+                open_to_public=False,
+                lifecycle_stage=EndpointLifecycle.CREATED,
+            )
+            sibling = EndpointRow(
+                id=sibling_id,
+                name=duplicate_name,
+                created_user=user_id,
+                session_owner=user_id,
+                domain=test_domain.name,
+                project=test_group.id,
+                resource_group=test_scaling_group.name,
+                replicas=0,
+                desired_replicas=0,
+                url=None,
+                open_to_public=False,
+                lifecycle_stage=EndpointLifecycle.DESTROYING,
+            )
+            db_sess.add_all([target, sibling])
+            await db_sess.commit()
+
+        return target_id, sibling_id
+
+    async def test_destroy_endpoint_with_destroying_sibling_does_not_conflict(
+        self,
+        deployment_repository: DeploymentRepository,
+        db_with_cleanup: ExtendedAsyncSAEngine,
+        coexisting_active_and_destroying_endpoints: tuple[uuid.UUID, uuid.UUID],
+    ) -> None:
+        """Destroying an active endpoint succeeds even when a sibling row with
+        the same (name, domain, project) is already in DESTROYING."""
+        target_id, _ = coexisting_active_and_destroying_endpoints
+
+        succeeded = await deployment_repository.destroy_endpoint(target_id)
+        assert succeeded is True
+
+        async with db_with_cleanup.begin_session() as db_sess:
+            target_stage = (
+                await db_sess.execute(
+                    sa.select(EndpointRow.lifecycle_stage).where(EndpointRow.id == target_id)
+                )
+            ).scalar_one()
+            assert target_stage == EndpointLifecycle.DESTROYING

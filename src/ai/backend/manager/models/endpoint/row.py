@@ -169,12 +169,15 @@ class EndpointRow(Base):  # type: ignore[misc]
 
     __table_args__ = (
         sa.Index(
-            "ix_endpoints_unique_name_when_not_destroyed",
+            "ix_endpoints_unique_name_when_active",
             "name",
             "domain",
             "project",
             unique=True,
-            postgresql_where=(sa.column("lifecycle_stage") != EndpointLifecycle.DESTROYED.value),
+            postgresql_where=sa.column("lifecycle_stage").notin_([
+                EndpointLifecycle.DESTROYING.value,
+                EndpointLifecycle.DESTROYED.value,
+            ]),
         ),
         sa.Index(
             "ix_endpoints_lifecycle_sub_step",
