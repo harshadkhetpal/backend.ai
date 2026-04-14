@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from aiohttp import web
@@ -181,6 +181,7 @@ async def test_authorize_success(
         password="correct_password",
         request=MagicMock(),
         stoken=None,
+        client_type_id=uuid4(),
         otp=None,
     )
 
@@ -207,6 +208,7 @@ async def test_authorize_invalid_token_type(
         password="password",
         request=MagicMock(),
         stoken=None,
+        client_type_id=uuid4(),
         otp=None,
     )
 
@@ -233,6 +235,7 @@ async def test_authorize_invalid_credentials(
         password="wrong_password",
         request=MagicMock(),
         stoken=None,
+        client_type_id=uuid4(),
         otp=None,
     )
 
@@ -254,6 +257,7 @@ async def test_authorize_with_hook_authorization(
         password="any_password",
         request=MagicMock(),
         stoken=None,
+        client_type_id=uuid4(),
         otp=None,
     )
 
@@ -310,6 +314,7 @@ async def test_authorize_with_password_expiry(
         password="old_password",
         request=MagicMock(),
         stoken=None,
+        client_type_id=uuid4(),
         otp=None,
     )
 
@@ -352,6 +357,7 @@ async def test_authorize_with_post_hook_response(
         password="password",
         request=MagicMock(),
         stoken=None,
+        client_type_id=uuid4(),
         otp=None,
     )
 
@@ -395,6 +401,7 @@ async def test_authorize_with_valkey_cross_check_cleans_stale_sessions(
         password="password",
         request=MagicMock(),
         stoken=None,
+        client_type_id=uuid4(),
         otp=None,
     )
 
@@ -453,6 +460,7 @@ async def test_authorize_force_invalidates_existing_sessions(
         password="password",
         request=MagicMock(),
         stoken=None,
+        client_type_id=uuid4(),
         otp=None,
         force=True,
     )
@@ -528,6 +536,7 @@ async def test_create_login_session_does_not_pass_max_concurrent_sessions_to_rep
         session_token="new_token",
     )
 
+    test_client_type_id = uuid4()
     await auth_service._create_login_session(
         action=AuthorizeAction(
             type=AuthTokenType.KEYPAIR,
@@ -536,6 +545,7 @@ async def test_create_login_session_does_not_pass_max_concurrent_sessions_to_rep
             password="password",
             request=MagicMock(),
             stoken=None,
+            client_type_id=uuid4(),
             otp=None,
         ),
         user=_make_mock_user(),
@@ -548,6 +558,7 @@ async def test_create_login_session_does_not_pass_max_concurrent_sessions_to_rep
             password_hash_salt_size=32,
             login_session_max_age=604800,
         ),
+        login_client_type_id=test_client_type_id,
     )
 
     call_kwargs = mock_auth_repository.create_login_session.call_args.kwargs
